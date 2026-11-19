@@ -1,0 +1,31 @@
+{
+  "name": "fpvirtual-crepe-editor",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Editor WYSIWYG de materiales LiaScript para Moodle (Materiales Editables), basado en Crepe/Milkdown",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "liaex:check": "node scripts/liaex-check.mjs"
+  },
+  "dependencies": {
+    "@milkdown/crepe": "7.23.0",
+    "@milkdown/kit": "7.23.0",
+    "vue": "3.5.45"
+  },
+  "devDependencies": {
+    "@types/mdast": "4.0.4",
+    "@types/node": "26.6.6",
+    "@vitejs/plugin-vue": "6.0.11",
+    "jsdom": "31.0.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.1",
+    "vue-tsc": "3.3.14"
+  }
+}

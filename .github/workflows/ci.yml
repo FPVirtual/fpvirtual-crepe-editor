@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Tipos
+        run: npm run typecheck
+      - name: Tests (round-trip, dialecto, rendimiento)
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Tamaño del bundle
+        run: |
+          echo "## Bundle" >> "$GITHUB_STEP_SUMMARY"
+          echo '| Fichero | Bytes | gzip |' >> "$GITHUB_STEP_SUMMARY"
+          echo '| --- | --- | --- |' >> "$GITHUB_STEP_SUMMARY"
+          for f in dist/assets/index-*.js dist/assets/index-*.css; do
+            echo "| $(basename "$f") | $(wc -c < "$f") | $(gzip -c "$f" | wc -c) |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "Total dist: $(du -sh dist | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Informe de round-trip
+        run: |
+          echo "## Round-trip" >> "$GITHUB_STEP_SUMMARY"
+          node -e "for (const r of require('./reports/roundtrip.json')) console.log('| ' + r.fixture + ' | ' + (r.exact ? '✓' : '✗') + ' | ' + (r.semantic ? '✓' : '✗') + ' | ' + Math.round(r.protectedRatio * 100) + ' % |')" >> "$GITHUB_STEP_SUMMARY"
