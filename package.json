@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "liaex:check": "node scripts/liaex-check.mjs"
+    "liaex:check": "node scripts/liaex-check.mjs",
+    "e2e": "node scripts/e2e-mock.mjs"
   },
   "dependencies": {
     "@milkdown/crepe": "7.23.0",

@@ -28,7 +28,16 @@ export interface LiaEditor {
   destroy: () => Promise<void>
 }
 
-export async function createLiaEditor(root: HTMLElement, markdown: string): Promise<LiaEditor> {
+export interface LiaEditorOptions {
+  /** Se llama cuando cambia el documento (sin serializar: es barato). */
+  onChange?: () => void
+}
+
+export async function createLiaEditor(
+  root: HTMLElement,
+  markdown: string,
+  options: LiaEditorOptions = {},
+): Promise<LiaEditor> {
   const doc = splitDocument(markdown)
   const readonly = doc.lms?.readonly ?? false
   const crepe = new Crepe({
@@ -40,6 +49,15 @@ export async function createLiaEditor(root: HTMLElement, markdown: string): Prom
     },
   })
   crepe.editor.use(liascript)
+  if (options.onChange) {
+    const onChange = options.onChange
+    crepe.on((listener) => {
+      listener.updated((_ctx, doc, prevDoc) => {
+        // prevDoc es null en la carga inicial: eso no es un cambio del usuario.
+        if (prevDoc && !doc.eq(prevDoc)) onChange()
+      })
+    })
+  }
   await crepe.create()
   crepe.setReadonly(readonly)
 

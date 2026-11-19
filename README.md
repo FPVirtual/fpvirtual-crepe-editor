@@ -6,9 +6,17 @@ fork de LiveEditor como capa de edición; el backend (plugin
 `local_liamateriales` y engine `materiales_liascript-git`) vive en el repo
 `moodle-liascript-git` y no se modifica desde aquí.
 
-> **Estado: Fase 0 (PoC, go/no-go).** Resultados y recomendación en
-> [docs/informe-m0.md](docs/informe-m0.md). El guardado contra Moodle
-> (LmsBridge, 409/401) llega en M1.
+> **Estado: M1 en curso.** Fase 0 cerrada con *go condicionado*
+> ([docs/informe-m0.md](docs/informe-m0.md)). Ya funciona el ciclo con
+> Moodle:
+> - abrir desde «Editar»;
+> - guardar (botón y Ctrl+S), con conflicto 409 (ver diferencias, recargar
+>   o forzar) y sesión caducada;
+> - renovar el token;
+> - publicar en H5P, ePub o PDF;
+> - borrador local en IndexedDB y aviso al salir con cambios.
+>
+> Pendiente en M1: panel de cabecera y modo fuente.
 
 ## Cómo funciona la fidelidad LiaScript
 
@@ -43,7 +51,12 @@ npm test               # dialecto + round-trip de fixtures + rendimiento
 npm run typecheck
 npm run build          # dist/ estático
 npm run liaex:check    # equivalencia con el parser real de LiaScript (Docker)
+npm run e2e            # tras build: editar → guardar → 409 → forzar → publicar en Chrome
 ```
+
+`npm run e2e` levanta un backend simulado que reproduce las respuestas de
+`content.php`, `save.php`, `token.php` y `publish_api.php`. Controla Chrome
+headless por DevTools Protocol y deja una captura en `reports/e2e.png`.
 
 `npm test` genera `reports/` (round-trip, rendimiento, documentos
 canónicos); `liaex:check` compara la huella de `liaex -f fullJson`
