@@ -45,6 +45,27 @@ en vista visual. En los materiales reales, que son sobre todo prosa, es del
 10–24 %. En documentos muy cargados de LiaScript es mucho mayor; la Fase 2
 (formularios de quiz, cajas, Mermaid) es la que lo reduce.
 
+### Actualización: corpus v2 (2026-11-19)
+
+El repo `contenidos-test` (rama `corpus-pruebas-v2`) corrige los quizzes
+mal escritos y añade `ut05-sesiones` y `demo-python-pyodide`. Con los 5
+materiales reales y los 5 casos, el resultado es **10/10** en todos los
+criterios (idempotencia, mdast, LiaScript literal, edición local y
+equivalencia con liaex).
+
+| Fixture real | Protegido | Tipos protegidos |
+| --- | --- | --- |
+| demo-liascript (1.1.0) | 41 % | quiz ×9, effect ×4, macro ×3, html, inline |
+| demo-python-pyodide | 39 % | macro ×2, quiz |
+| ut03-mvc (2.0.1) | 11 % | quiz ×3 |
+| ut04-pdo (2.0.1) | 11 % | quiz ×3 |
+| ut05-sesiones | 57 % | effect ×7, quiz ×6, macro ×3 |
+
+En `ut05` la mitad del documento queda protegida, porque los bloques de
+código PHP van dentro de animaciones `{{n}}`/`****`. Es la principal
+razón para que la Fase 2 permita editar el contenido de los bloques
+animados.
+
 ## 3. Decisiones de diseño validadas
 
 - **Recorte literal por posiciones** en lugar de re-serializar la sintaxis
@@ -95,7 +116,7 @@ en vista visual. En los materiales reales, que son sobre todo prosa, es del
 
 ## 5. Limitaciones de esta medición
 
-- **Corpus pequeño**: 3 materiales reales cortos. Antes de M1 hacen falta
+- **Corpus pequeño**: 5 materiales reales (corpus v2), aún cortos. Antes de M1 hacen falta
   materiales reales de producción, sobre todo los que usen el template de
   cajas `@nota/@aviso/@error` (aún no visto) y temas de 50+ páginas reales
   en vez del sintético.
