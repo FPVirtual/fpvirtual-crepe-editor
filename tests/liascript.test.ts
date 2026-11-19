@@ -24,6 +24,19 @@ describe('cabecera y bloque liascript-lms', () => {
     expect(doc.header).not.toContain('liascript-lms')
   })
 
+  it('material sin cabecera: el comentario creado para el bloque no vuelve a Git', () => {
+    const doc = splitDocument(
+      '<!--\nliascript-lms:\n  save_endpoint: s\n  file: f.md\n  branch: b\n  sha: x\n  token: t\n-->\n\n# Hola\n',
+    )
+    expect(doc.lms?.file).toBe('f.md')
+    expect(joinDocument(doc, doc.body)).toBe('# Hola\n')
+  })
+
+  it('inyección reversible (bloque justo antes de -->): cabecera intacta', () => {
+    const doc = splitDocument('<!--\ntitle: X\nliascript-lms:\n  save_endpoint: s\n  file: f.md\n  branch: b\n  sha: x\n  token: t\n-->\n\n# X\n')
+    expect(joinDocument(doc, doc.body)).toBe('<!--\ntitle: X\n-->\n\n# X\n')
+  })
+
   it('documento sin cabecera', () => {
     const doc = splitDocument('# Hola\n')
     expect(doc.header).toBe('')

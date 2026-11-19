@@ -53,9 +53,14 @@ export function splitDocument(markdown: string): SplitDocument {
   if (!match) {
     return { header: '', gap: '', body: markdown }
   }
-  const { header, lms } = extractLms(match[0])
+  const { header, lms, hadBlock } = extractLms(match[0])
   const rest = markdown.slice(match[0].length)
   const gap = /^\s*/.exec(rest)?.[0] ?? ''
+  // Material sin cabecera: el plugin crea un comentario solo para el bloque
+  // LMS; al quitarlo queda vacío y no debe volver a Git.
+  if (hadBlock && /^<!--\s*-->$/.test(header)) {
+    return { header: '', gap: '', body: rest.slice(gap.length), lms }
+  }
   return { header, gap, body: rest.slice(gap.length), lms }
 }
 
@@ -65,10 +70,10 @@ export function joinDocument(doc: Pick<SplitDocument, 'header' | 'gap'>, body: s
   return doc.header + (doc.gap || '\n\n') + body
 }
 
-function extractLms(header: string): { header: string; lms?: LmsConfig } {
+function extractLms(header: string): { header: string; lms?: LmsConfig; hadBlock: boolean } {
   const lines = header.split('\n')
   const keyLine = lines.findIndex((l) => l.trimStart().startsWith(`${BLOCK_KEY}:`))
-  if (keyLine === -1) return { header }
+  if (keyLine === -1) return { header, hadBlock: false }
 
   const raw: Record<string, string> = {}
   let end = keyLine + 1
@@ -88,10 +93,11 @@ function extractLms(header: string): { header: string; lms?: LmsConfig } {
 
   if (REQUIRED.some((k) => !raw[k])) {
     // Un bloque incompleto se descarta entero: nunca habilita a medias la integración.
-    return { header: stripped }
+    return { header: stripped, hadBlock: true }
   }
   return {
     header: stripped,
+    hadBlock: true,
     lms: {
       save_endpoint: raw.save_endpoint,
       publish_endpoint: raw.publish_endpoint || undefined,
