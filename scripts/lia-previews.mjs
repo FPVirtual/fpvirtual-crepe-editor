@@ -4,7 +4,8 @@
 // 2. Lo exporta con el LiaScript real: `liaex -f web` (Docker).
 // 3. Lo sirve en local y captura cada sección con Chrome headless (DevTools
 //    Protocol), recortando solo el contenido.
-// 4. Guarda public/lia-examples/<key>.webp, que el panel LiaScript muestra.
+// 4. Guarda public/lia-examples/<key>.webp (a doble resolución, para que se
+//    vean nítidas al ampliarlas), que el panel LiaScript muestra.
 //
 // Uso: npm run lia:previews   (requiere Docker, la imagen liascript/exporter
 // y google-chrome). Repetir al cambiar el catálogo o al actualizar LiaScript.
@@ -109,7 +110,7 @@ try {
     return r.result.result.value
   }
   await send('Page.enable')
-  await send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: 900, deviceScaleFactor: 1, mobile: false })
+  await send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: 900, deviceScaleFactor: 2, mobile: false })
 
   for (const [i, example] of LIA_EXAMPLES.entries()) {
     if (only.length && !only.includes(example.key)) continue

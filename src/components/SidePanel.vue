@@ -2,6 +2,7 @@
 // Panel lateral plegable. Abierto: cabecera con título e icono de plegar en
 // la esquina superior derecha. Plegado: franja estrecha con el icono para
 // desplegarlo (el control vive siempre en el propio panel).
+import { isNarrow } from '../editor/usePanel'
 import { t } from '../i18n'
 
 const props = defineProps<{
@@ -11,6 +12,18 @@ const props = defineProps<{
   open: boolean
 }>()
 const emit = defineEmits<{ toggle: [] }>()
+
+/**
+ * Esc pliega el panel solo cuando está superpuesto al documento (pantallas
+ * estrechas), y nunca si la tecla era para otra cosa: un diálogo, el
+ * buscador o un campo de texto.
+ */
+function onEscape(event: KeyboardEvent): void {
+  const target = event.target as Element | null
+  if (!props.open || !isNarrow() || event.defaultPrevented) return
+  if (target?.closest('dialog, input, textarea, select')) return
+  emit('toggle')
+}
 
 /**
  * Icono «panel lateral» con una flecha en la zona de contenido que indica
@@ -29,7 +42,7 @@ const arrow = (): string => {
     class="side-panel"
     :class="[`side-panel--${side}`, open ? 'is-open' : 'is-collapsed']"
     :aria-label="title"
-    @keydown.esc="open && emit('toggle')"
+    @keydown.esc="onEscape"
   >
     <div class="side-panel__head">
       <span v-if="open" class="side-panel__title">{{ title }}</span>
