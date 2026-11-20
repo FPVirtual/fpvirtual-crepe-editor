@@ -1,67 +1,141 @@
-:root {
-  --lia-bg: #f7f8fa;
-  --lia-fg: #1d2330;
-  --lia-muted: #5b6475;
-  --lia-border: #d7dbe3;
-  --lia-accent: #2457c5;
-  --lia-quiz: #eaf6ee;
-  --lia-quiz-border: #3c9a5f;
-  --lia-fallback: #f3f0ff;
-  --lia-fallback-border: #7a5cc8;
-}
+/*
+ * Estilos de la app (barra, avisos, diálogos, tarjetas LiaScript).
+ * Capa de COMPONENTE: solo consume tokens semánticos `--md-*`
+ * (src/theme/tokens.ts); nunca colores literales.
+ */
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--lia-bg); color: var(--lia-fg); font-family: system-ui, sans-serif; }
+body {
+  margin: 0;
+  background: var(--md-color-bg);
+  color: var(--md-color-text);
+  font-family: var(--md-font-body);
+  font-size: var(--md-font-size-base);
+}
 
+:focus-visible {
+  outline: var(--md-focus-width) solid var(--md-color-focus);
+  outline-offset: 2px;
+}
+
+a { color: var(--md-color-primary-text); }
+
+/* Barra superior. */
 .topbar {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 8px 16px; background: #fff; border-bottom: 1px solid var(--lia-border);
+  padding: 8px 16px;
+  background: var(--md-color-surface);
+  border-bottom: 1px solid var(--md-color-border);
 }
-.topbar__title { font-weight: 600; margin-right: auto; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eee; color: var(--lia-muted); }
-.btn { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--lia-border); background: #fff; cursor: pointer; }
-.btn:focus-visible { outline: 2px solid var(--lia-accent); outline-offset: 2px; }
+.topbar__title { display: flex; flex-direction: column; margin-right: auto; font-weight: 600; min-width: 0; }
+.topbar__branch { font-size: 12px; font-weight: 400; color: var(--md-color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar__status { font-size: 13px; color: var(--md-color-text-muted); }
 
-.message { max-width: 720px; margin: 64px auto; padding: 0 16px; color: var(--lia-muted); }
+.badge {
+  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: var(--md-color-surface-sunken); color: var(--md-color-text-muted);
+}
+
+/* Botones y controles. */
+.btn {
+  display: inline-block;
+  font: inherit; padding: 6px 12px; cursor: pointer;
+  border-radius: var(--md-radius);
+  border: 1px solid var(--md-color-border-strong);
+  background: var(--md-color-surface);
+  color: var(--md-color-text);
+  text-decoration: none;
+}
+.btn:hover:not(:disabled) { background: var(--md-color-hover); }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn--primary {
+  background: var(--md-color-primary-fill);
+  border-color: var(--md-color-primary-fill);
+  color: var(--md-color-on-primary);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--md-color-primary-fill);
+  filter: brightness(1.08);
+}
+.btn--danger { border-color: var(--md-color-danger); color: var(--md-color-danger); }
+
+.select {
+  font: inherit; padding: 6px 8px;
+  border-radius: var(--md-radius);
+  border: 1px solid var(--md-color-border-strong);
+  background: var(--md-color-surface);
+  color: var(--md-color-text);
+}
+
+/* Mensajes y documento. */
+.message { max-width: 720px; margin: 64px auto; padding: 0 16px; color: var(--md-color-text-muted); }
 .editor { max-width: 960px; margin: 0 auto; padding: 16px; }
+.editor .milkdown {
+  border: 1px solid var(--md-color-border);
+  border-radius: var(--md-radius);
+}
 
 .debug { max-width: 960px; margin: 0 auto 32px; padding: 0 16px; }
-.debug pre { background: #fff; border: 1px solid var(--lia-border); padding: 12px; overflow: auto; max-height: 50vh; font-size: 12px; }
+.debug pre {
+  background: var(--md-color-surface);
+  border: 1px solid var(--md-color-border);
+  padding: 12px; overflow: auto; max-height: 50vh; font-size: 12px;
+  font-family: var(--md-font-code);
+}
 
 /* Tarjetas de bloques LiaScript protegidos (R4). */
 .lia-card {
-  margin: 12px 0; padding: 10px 14px; border-radius: 8px;
-  border: 1px dashed var(--lia-fallback-border); background: var(--lia-fallback);
+  margin: 12px 0; padding: 10px 14px;
+  border-radius: var(--md-radius);
+  border: 1px dashed var(--md-color-special-border);
+  background: var(--md-color-special-soft);
+  color: var(--md-color-text);
   user-select: none;
 }
-.lia-card--quiz { border-style: solid; border-color: var(--lia-quiz-border); background: var(--lia-quiz); }
-.lia-card.ProseMirror-selectednode { outline: 2px solid var(--lia-accent); }
-.lia-card__label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--lia-muted); margin-bottom: 6px; }
-.lia-card__source { margin: 0; white-space: pre-wrap; font-size: 13px; font-family: ui-monospace, monospace; }
+.lia-card--quiz {
+  border-style: solid;
+  border-color: var(--md-color-success-border);
+  background: var(--md-color-success-soft);
+}
+.lia-card.ProseMirror-selectednode { outline: var(--md-focus-width) solid var(--md-color-focus); }
+.lia-card__label {
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--md-color-special); margin-bottom: 6px;
+}
+.lia-card--quiz .lia-card__label { color: var(--md-color-success); }
+.lia-card__source { margin: 0; white-space: pre-wrap; font-size: 13px; font-family: var(--md-font-code); }
 .lia-card__quiz { margin: 0; padding-left: 0; list-style: none; }
 .lia-card__quiz li { padding: 2px 0; }
 .lia-card__quiz li.is-correct { font-weight: 600; }
-.lia-card__meta { margin-top: 6px; font-size: 12px; color: var(--lia-muted); }
+.lia-card__meta { margin-top: 6px; font-size: 12px; color: var(--md-color-text-muted); }
 
-/* M1: barra de guardado, avisos y diálogo de conflicto. */
-.topbar__title { display: flex; flex-direction: column; margin-right: auto; font-weight: 600; min-width: 0; }
-.topbar__branch { font-size: 12px; font-weight: 400; color: var(--lia-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.topbar__status { font-size: 13px; color: var(--lia-muted); }
-.btn { text-decoration: none; color: inherit; display: inline-block; }
-.btn:disabled { opacity: .6; cursor: progress; }
-.btn--primary { background: var(--lia-accent); border-color: var(--lia-accent); color: #fff; }
-.btn--danger { border-color: #c62828; color: #c62828; }
-.select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--lia-border); background: #fff; }
+/* Avisos. */
 .banner {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
   max-width: 960px; margin: 12px auto 0; padding: 10px 16px;
-  background: #eef3ff; border: 1px solid #c9d7fb; border-radius: 8px;
+  background: var(--md-color-info-soft);
+  border: 1px solid var(--md-color-info-border);
+  border-radius: var(--md-radius);
+  color: var(--md-color-text);
 }
 .banner ul { flex-basis: 100%; margin: 0; padding-left: 20px; }
-.banner--error { background: #fdecea; border-color: #f2b8b5; }
-.dialog { max-width: 520px; border: 1px solid var(--lia-border); border-radius: 10px; padding: 20px 24px; }
-.dialog::backdrop { background: rgb(0 0 0 / .35); }
+.banner--error {
+  background: var(--md-color-danger-soft);
+  border-color: var(--md-color-danger-border);
+}
+
+/* Diálogo de conflicto. */
+.dialog {
+  max-width: 520px; padding: 20px 24px;
+  border: 1px solid var(--md-color-border);
+  border-radius: calc(var(--md-radius) + 4px);
+  background: var(--md-color-surface);
+  color: var(--md-color-text);
+  box-shadow: var(--md-shadow-2);
+}
+.dialog::backdrop { background: var(--md-backdrop); }
 .dialog h2 { margin-top: 0; font-size: 18px; }
 .dialog__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

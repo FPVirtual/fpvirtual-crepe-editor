@@ -16,6 +16,7 @@ import {
   type BlockSlice,
   type SplitDocument,
 } from '../liascript'
+import { codeHighlight } from '../theme/codemirror'
 
 export interface LiaEditor {
   crepe: Crepe
@@ -46,6 +47,10 @@ export async function createLiaEditor(
     features: {
       [Crepe.Feature.AI]: false,
       [Crepe.Feature.TopBar]: false,
+    },
+    featureConfigs: {
+      // Colores de sintaxis desde los tokens `--md-syntax-*` del tema.
+      [Crepe.Feature.CodeMirror]: { theme: codeHighlight },
     },
   })
   crepe.editor.use(liascript)

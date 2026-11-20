@@ -10,6 +10,8 @@ import type { LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { materialUrl } from './lms/openUrl'
+import { THEMES } from './theme/themes'
+import { useTheme } from './theme/useTheme'
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'unchanged' | 'error' | 'invalid' | 'auth'
 
@@ -38,6 +40,8 @@ const publishMessage = ref('')
 const publishUrl = ref<string | undefined>()
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
+const { preference: themePreference } = useTheme()
+
 const debug = new URLSearchParams(location.search).has('debug')
 const debugOutput = ref('')
 
@@ -322,6 +326,12 @@ function toggleDebug(): void {
       </select>
       <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
     </template>
+
+    <label class="visually-hidden" for="theme-select">{{ t('theme.label') }}</label>
+    <select id="theme-select" v-model="themePreference" class="select" :title="t('theme.label')">
+      <option value="auto">{{ t('theme.auto') }}</option>
+      <option v-for="th in THEMES" :key="th.id" :value="th.id">{{ t(th.label) }}</option>
+    </select>
 
     <a v-if="lms?.return_url" class="btn" :href="lms.return_url">{{ t('app.backToMoodle') }}</a>
     <button v-if="debug && editor" class="btn" type="button" @click="toggleDebug">

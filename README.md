@@ -71,6 +71,21 @@ versión re-serializada entera, que es el peor caso.
 
 Cada fixture nuevo entra automáticamente en la suite.
 
+## Temas del editor
+
+Sistema de tokens en tres capas (`src/theme/`):
+
+1. **Paleta** (`palette.ts`): valores crudos. Es el único sitio con colores literales.
+2. **Semántica** (`tokens.ts`): `--md-color-*`, `--md-syntax-*` y tipografía; cada
+   tema (`themes.ts`) asigna un valor de la paleta a cada token.
+3. **Componente**: `hope.css` (único mapeo `--md-*` → `--crepe-*` y estética
+   vuepress-theme-hope sobre ProseMirror) y `styles.css` solo usan `var(--md-*)`.
+
+Temas: `verde` (claro, por defecto), `oscuro` y `contraste` (AAA, 7:1). El selector
+de la barra guarda la elección; en «automático» se sigue `prefers-contrast` y
+`prefers-color-scheme`. `?theme=<id>` fuerza un tema. Los tests comprueban el
+contraste WCAG de cada tema y que no haya colores literales fuera de la paleta.
+
 ## Apertura desde Moodle
 
 El editor lee la URL del material de:

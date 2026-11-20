@@ -15,6 +15,8 @@
     "e2e": "node scripts/e2e-mock.mjs"
   },
   "dependencies": {
+    "@codemirror/language": "6.13.1",
+    "@lezer/highlight": "1.2.5",
     "@milkdown/crepe": "7.23.0",
     "@milkdown/kit": "7.23.0",
     "vue": "3.5.45"

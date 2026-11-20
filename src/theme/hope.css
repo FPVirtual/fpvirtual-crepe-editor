@@ -1,0 +1,140 @@
+/*
+ * Tema «hope» para Crepe: ÚNICO punto de mapeo tokens semánticos → Crepe.
+ *
+ * Se carga tras `@milkdown/crepe/theme/common/style.css` y sustituye a los
+ * temas oficiales (frame, nord…). No cambia entre temas: lo que cambia son
+ * los valores `--md-*`, generados desde los datos de src/theme/themes.ts.
+ *
+ * REGLA: aquí y en el resto de componentes solo se consumen variables
+ * `--md-*`; ningún color literal (lo comprueba tests/theme.test.ts).
+ */
+
+/* 1. Variables de Crepe ← tokens semánticos -------------------------------- */
+.milkdown {
+  --crepe-color-background: var(--md-color-surface);
+  --crepe-color-on-background: var(--md-color-text);
+  --crepe-color-surface: var(--md-color-surface-muted);
+  --crepe-color-surface-low: var(--md-color-surface-sunken);
+  --crepe-color-on-surface: var(--md-color-text);
+  --crepe-color-on-surface-variant: var(--md-color-text-muted);
+  --crepe-color-outline: var(--md-color-border-strong);
+  --crepe-color-primary: var(--md-color-primary-text);
+  --crepe-color-secondary: var(--md-color-primary-soft);
+  --crepe-color-on-secondary: var(--md-color-text);
+  --crepe-color-inverse: var(--md-color-inverse);
+  --crepe-color-on-inverse: var(--md-color-on-inverse);
+  --crepe-color-inline-code: var(--md-color-code-text);
+  --crepe-color-error: var(--md-color-danger);
+  --crepe-color-hover: var(--md-color-hover);
+  --crepe-color-selected: var(--md-color-selection);
+  --crepe-color-inline-area: var(--md-color-code-bg);
+  --crepe-color-diff-added: var(--md-color-success-border);
+  --crepe-color-diff-added-text: var(--md-color-success);
+  --crepe-color-diff-added-bg: var(--md-color-success-soft);
+  --crepe-color-diff-removed: var(--md-color-danger-border);
+  --crepe-color-diff-removed-text: var(--md-color-danger);
+  --crepe-color-diff-removed-bg: var(--md-color-danger-soft);
+
+  --crepe-base-font-size: var(--md-font-size-base);
+  --crepe-font-default: var(--md-font-body);
+  --crepe-font-title: var(--md-font-title);
+  --crepe-font-code: var(--md-font-code);
+
+  --crepe-shadow-1: var(--md-shadow-1);
+  --crepe-shadow-2: var(--md-shadow-2);
+}
+
+/* 2. Lo que las variables de Crepe no cubren: estética hope ---------------- */
+.milkdown .ProseMirror p,
+.milkdown .ProseMirror li {
+  line-height: var(--md-line-height);
+}
+
+.milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--md-color-heading);
+  font-weight: var(--md-heading-weight);
+  line-height: 1.3;
+}
+.milkdown .ProseMirror h1 { font-size: var(--md-font-size-h1); margin-top: 1.2em; }
+.milkdown .ProseMirror h2 {
+  font-size: var(--md-font-size-h2);
+  margin-top: 1.4em;
+  padding-bottom: 0.3em;
+  border-bottom: var(--md-h2-border-width) solid var(--md-color-border);
+}
+.milkdown .ProseMirror h3 { font-size: var(--md-font-size-h3); margin-top: 1.2em; }
+.milkdown .ProseMirror h4 { font-size: var(--md-font-size-h4); margin-top: 1em; }
+.milkdown .ProseMirror h5 { font-size: var(--md-font-size-h5); margin-top: 1em; }
+.milkdown .ProseMirror h6 { font-size: var(--md-font-size-h6); margin-top: 1em; }
+
+/* Enlaces: color de acento; subrayado al pasar el ratón (o siempre, según el tema). */
+.milkdown .ProseMirror a {
+  color: var(--md-color-primary-text);
+  font-weight: 500;
+  text-decoration: var(--md-link-decoration);
+  text-underline-offset: 0.2em;
+}
+.milkdown .ProseMirror a:hover {
+  text-decoration: underline;
+}
+
+/* Selección de texto. */
+.milkdown .ProseMirror ::selection {
+  background: var(--md-color-selection);
+  color: var(--md-color-text);
+}
+
+/* Código: fondo de token exacto (Crepe lo mezcla con transparencia). */
+.milkdown .ProseMirror code {
+  color: var(--md-color-code-text);
+  background: var(--md-color-code-bg);
+  padding: 0 0.3em;
+}
+.milkdown .ProseMirror pre {
+  background: var(--md-color-code-bg);
+}
+.milkdown .ProseMirror pre code {
+  padding: 0;
+  background: transparent;
+}
+
+/* Bloques de código (CodeMirror): línea activa y selección con tokens. */
+.milkdown .milkdown-code-block .cm-activeLine,
+.milkdown .milkdown-code-block .cm-activeLineGutter {
+  background-color: var(--md-color-hover);
+}
+.milkdown .milkdown-code-block .cm-selectionBackground,
+.milkdown .milkdown-code-block .cm-focused .cm-selectionBackground {
+  background-color: var(--md-color-selection);
+}
+
+/* Citas: barra de acento y texto atenuado. */
+.milkdown .ProseMirror blockquote {
+  color: var(--md-color-text-muted);
+}
+.milkdown .ProseMirror blockquote::before {
+  background: var(--md-color-border-strong);
+}
+
+/* Separador horizontal. */
+.milkdown .ProseMirror hr {
+  height: 1px;
+  padding: 0;
+  margin: 1.5em 0;
+  background-color: var(--md-color-border);
+}
+
+/* Tablas. */
+.milkdown .milkdown-table-block th,
+.milkdown .milkdown-table-block td {
+  border-color: var(--md-color-border);
+}
+.milkdown .milkdown-table-block th {
+  background: var(--md-color-surface-muted);
+  font-weight: var(--md-heading-weight);
+}
+
+/* Estados activos y foco. */
+.milkdown .ProseMirror .ProseMirror-selectednode {
+  outline-color: var(--md-color-focus);
+}

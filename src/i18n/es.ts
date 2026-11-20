@@ -52,6 +52,12 @@ export const es: Record<string, string> = {
   'draft.discard': 'Descartar',
   'draft.staleSha': 'Hay un borrador local de una versión anterior del material ({date}); no se puede recuperar automáticamente.',
 
+  'theme.label': 'Tema de colores',
+  'theme.auto': 'Tema: automático',
+  'theme.verde': 'Tema: verde',
+  'theme.oscuro': 'Tema: oscuro',
+  'theme.contraste': 'Tema: alto contraste',
+
   'lia.kind.quiz': 'Autoevaluación (se ejecuta al publicar)',
   'lia.kind.effect': 'Animación / narración LiaScript',
   'lia.kind.macro': 'Macro LiaScript',
