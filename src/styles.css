@@ -100,6 +100,13 @@ a { color: var(--md-color-primary-text); }
   font-family: var(--md-font-code);
 }
 
+/*
+ * Imágenes: sin endpoint de subida en el contrato con Moodle, el «Subir» de
+ * Crepe guardaría una URL `blob:` local que se rompe al cerrar la pestaña.
+ * Se oculta: las imágenes se insertan pegando su URL.
+ */
+.milkdown .link-importer .placeholder .uploader { display: none !important; }
+
 /* Tarjetas de bloques LiaScript protegidos (R4). */
 .lia-card {
   margin: 12px 0; padding: 10px 14px;
@@ -115,9 +122,51 @@ a { color: var(--md-color-primary-text); }
   background: var(--md-color-success-soft);
 }
 .lia-card.ProseMirror-selectednode { outline: var(--md-focus-width) solid var(--md-color-focus); }
+.lia-card__header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
 .lia-card__label {
   font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--md-color-special); margin-bottom: 6px;
+  color: var(--md-color-special);
+}
+.lia-card--editing > .lia-card__label { display: block; margin-bottom: 6px; }
+.lia-card__edit {
+  font: inherit; font-size: 13px; cursor: pointer;
+  padding: 2px 10px; border-radius: var(--md-radius);
+  border: 1px solid var(--md-color-border-strong);
+  background: var(--md-color-surface); color: var(--md-color-text);
+}
+.lia-card__edit:hover { background: var(--md-color-hover); }
+.ProseMirror[contenteditable='false'] .lia-card__edit { display: none; }
+.lia-card--editing { user-select: text; border-style: solid; }
+.lia-card__textarea {
+  display: block; width: 100%; resize: vertical;
+  padding: 8px 10px; border-radius: var(--md-radius);
+  border: 1px solid var(--md-color-border-strong);
+  background: var(--md-color-surface); color: var(--md-color-text);
+  font-family: var(--md-font-code); font-size: 14px; line-height: 1.5;
+  tab-size: 4;
+}
+.lia-card__actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/*
+ * Dentro del editor, el reset de Crepe (`.milkdown button`, `.milkdown
+ * :focus-visible`) quita bordes, fondos y anillo de foco: se restauran para
+ * los controles de las tarjetas.
+ */
+.milkdown .lia-card .btn,
+.milkdown .lia-card .lia-card__edit {
+  border: 1px solid var(--md-color-border-strong);
+  background: var(--md-color-surface);
+}
+.milkdown .lia-card .btn--primary {
+  border-color: var(--md-color-primary-fill);
+  background: var(--md-color-primary-fill);
+}
+.milkdown .lia-card :is(button, textarea):focus-visible {
+  outline: var(--md-focus-width) solid var(--md-color-focus);
+  outline-offset: 2px;
 }
 .lia-card--quiz .lia-card__label { color: var(--md-color-success); }
 .lia-card__source { margin: 0; white-space: pre-wrap; font-size: 13px; font-family: var(--md-font-code); }

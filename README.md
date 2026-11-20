@@ -34,7 +34,10 @@ LiaScript no es CommonMark. Para no perder ni reescribir su sintaxis:
    de la fuente. Los bloques contiguos (sin línea en blanco) y los bloques
    `****` de animaciones y soluciones se agrupan, porque LiaScript los asocia
    por adyacencia. Se muestran como tarjetas: los quizzes con su resumen y el
-   resto con la fuente en solo lectura.
+   resto con su fuente. Cada tarjeta se edita como texto («Editar» o doble
+   clic; `card-view.ts`): al aplicar se vuelve a parsear, así que lo tecleado
+   llega literal a Git. El menú «/» tiene un grupo LiaScript con plantillas
+   (`templates.ts`) y las macros que define la cabecera.
 3. **Serialización que preserva la fuente** (`preserve.ts`): al guardar,
    cada bloque no editado se emite con su texto original y su separación
    original. Solo los bloques editados salen en la forma que normaliza
@@ -102,6 +105,14 @@ VITE_BRAND_LINK=                         # opcional: enlace del logo
 
 Sin logo oscuro propio, en el tema oscuro el logo se muestra sobre una placa
 clara (token `--md-color-logo-bg`).
+
+### Ayuda
+
+`ayuda.html` (botón «Ayuda» de la barra, en pestaña nueva) tiene dos
+secciones enlazables: `#editor` (uso del editor, adaptado de la documentación
+de Crepe) y `#liascript` (quizzes, diapositivas, animaciones, narración,
+macros, código ejecutable). No carga Crepe. Los ejemplos que coinciden con el
+menú «/» salen de `LIA_TEMPLATES`, así que no se desincronizan.
 
 ## Apertura desde Moodle
 

@@ -4,15 +4,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 
 import { branding } from './branding'
+import AppBrand from './components/AppBrand.vue'
 import ConflictDialog from './components/ConflictDialog.vue'
+import ThemeSelect from './components/ThemeSelect.vue'
 import { createLiaEditor, type LiaEditor } from './editor/createEditor'
 import { t } from './i18n'
 import type { LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { materialUrl } from './lms/openUrl'
-import { THEMES } from './theme/themes'
-import { useTheme } from './theme/useTheme'
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'unchanged' | 'error' | 'invalid' | 'auth'
 
@@ -41,8 +41,6 @@ const publishMessage = ref('')
 const publishUrl = ref<string | undefined>()
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
-const { preference: themePreference } = useTheme()
-
 watchEffect(() => {
   document.title = lms.value?.file ? `${lms.value.file} · ${branding.title}` : branding.title
 })
@@ -308,18 +306,7 @@ function toggleDebug(): void {
 
 <template>
   <header class="topbar">
-    <component :is="branding.link ? 'a' : 'div'" class="brand" :href="branding.link">
-      <template v-if="branding.logo">
-        <img
-          class="brand__logo"
-          :class="{ 'brand__logo--light': branding.logoDark }"
-          :src="branding.logo"
-          :alt="branding.logoAlt"
-        />
-        <img v-if="branding.logoDark" class="brand__logo brand__logo--dark" :src="branding.logoDark" :alt="branding.logoAlt" />
-      </template>
-      <span class="brand__title">{{ branding.title }}</span>
-    </component>
+    <AppBrand />
 
     <div class="topbar__title">
       <span v-if="lms">{{ lms.file }}</span>
@@ -345,11 +332,10 @@ function toggleDebug(): void {
       <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
     </template>
 
-    <label class="visually-hidden" for="theme-select">{{ t('theme.label') }}</label>
-    <select id="theme-select" v-model="themePreference" class="select" :title="t('theme.label')">
-      <option value="auto">{{ t('theme.auto') }}</option>
-      <option v-for="th in THEMES" :key="th.id" :value="th.id">{{ t(th.label) }}</option>
-    </select>
+    <ThemeSelect />
+    <a class="btn" href="./ayuda.html#editor" target="_blank" rel="noopener" :title="t('help.buttonTitle')">
+      {{ t('help.button') }}
+    </a>
 
     <a v-if="lms?.return_url" class="btn" :href="lms.return_url">{{ t('app.backToMoodle') }}</a>
     <button v-if="debug && editor" class="btn" type="button" @click="toggleDebug">

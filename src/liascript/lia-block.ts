@@ -4,9 +4,9 @@
 //   clasificador marca como LiaScript por un nodo mdast `liaBlock` cuyo valor
 //   es el **recorte literal del Markdown original** (por posiciones), no una
 //   re-serialización: así nada se normaliza ni se escapa.
-// - En ProseMirror es un nodo de bloque atómico (no editable en visual) que se
-//   pinta como tarjeta: resumen para quizzes (R4) o fuente de solo lectura
-//   para el resto (fallback).
+// - En ProseMirror es un nodo de bloque atómico que se pinta como tarjeta:
+//   resumen para quizzes (R4) o la fuente para el resto. Su fuente se edita
+//   como texto desde la propia tarjeta (node view en card-view.ts).
 // - Al serializar se emite como nodo `html` de mdast, que remark-stringify
 //   escribe tal cual.
 
@@ -178,7 +178,15 @@ export const liaBlockNode = $node(LIA_BLOCK, () => ({
 
 /** Tarjeta de un bloque protegido (sin runtime LiaScript, R4). */
 function renderCard(value: string, kind: LiaKind): HTMLElement {
-  const card = document.createElement('div')
+  return fillCard(document.createElement('div'), value, kind)
+}
+
+/**
+ * Rellena (o repinta) una tarjeta. La primera hija es la cabecera
+ * (`.lia-card__header`), donde el node view añade el botón «Editar».
+ */
+export function fillCard(card: HTMLElement, value: string, kind: LiaKind): HTMLElement {
+  card.replaceChildren()
   card.className = `lia-card lia-card--${kind}`
   card.dataset.liaBlock = ''
   card.dataset.kind = kind
@@ -187,10 +195,13 @@ function renderCard(value: string, kind: LiaKind): HTMLElement {
   card.setAttribute('role', 'group')
   card.setAttribute('aria-label', t(`lia.kind.${kind}`))
 
-  const label = document.createElement('div')
+  const header = document.createElement('div')
+  header.className = 'lia-card__header'
+  const label = document.createElement('span')
   label.className = 'lia-card__label'
   label.textContent = t(`lia.kind.${kind}`)
-  card.append(label)
+  header.append(label)
+  card.append(header)
 
   const quiz = kind === 'quiz' ? summarizeQuiz(value) : null
   if (quiz && quiz.options.length > 0) {

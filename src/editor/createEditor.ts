@@ -9,6 +9,7 @@ import type { Root } from 'mdast'
 import { editorViewCtx, parserCtx, remarkCtx, serializerCtx } from '@milkdown/kit/core'
 
 import {
+  extractHeaderMacros,
   joinDocument,
   liascript,
   SourcePreserver,
@@ -16,7 +17,7 @@ import {
   type BlockSlice,
   type SplitDocument,
 } from '../liascript'
-import { codeHighlight } from '../theme/codemirror'
+import { crepeFeatureConfigs } from './crepeConfig'
 
 export interface LiaEditor {
   crepe: Crepe
@@ -48,10 +49,9 @@ export async function createLiaEditor(
       [Crepe.Feature.AI]: false,
       [Crepe.Feature.TopBar]: false,
     },
-    featureConfigs: {
-      // Colores de sintaxis desde los tokens `--md-syntax-*` del tema.
-      [Crepe.Feature.CodeMirror]: { theme: codeHighlight },
-    },
+    // Textos en español, resaltado con tokens y grupo LiaScript en el menú «/»
+    // (con las macros que define la cabecera del material).
+    featureConfigs: crepeFeatureConfigs(extractHeaderMacros(doc.header)),
   })
   crepe.editor.use(liascript)
   if (options.onChange) {
