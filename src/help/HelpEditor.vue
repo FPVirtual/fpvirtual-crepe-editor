@@ -49,6 +49,7 @@ const MARKDOWN: { type: string; result: string }[] = [
 
     <nav class="help__toc" aria-label="Contenido de esta sección">
       <a href="#editor/escribir">Escribir y dar formato</a>
+      <a href="#editor/indice">El índice</a>
       <a href="#editor/menu">El menú «/»</a>
       <a href="#editor/bloques">Mover y añadir bloques</a>
       <a href="#editor/enlaces">Enlaces e imágenes</a>
@@ -84,6 +85,28 @@ const MARKDOWN: { type: string; result: string }[] = [
         Los títulos son importantes: en LiaScript <strong>cada título empieza una sección o
         diapositiva</strong>. Consulta <a href="#liascript/diapositivas">Diapositivas y secciones</a>.
       </p>
+    </section>
+
+    <section id="editor/indice">
+      <h2>El índice</h2>
+      <p>
+        El panel de la izquierda muestra el <strong>índice del material</strong>, formado por sus
+        títulos: es la misma estructura de secciones que tendrá el curso. Se actualiza mientras
+        escribes y marca la sección en la que estás.
+      </p>
+      <ul>
+        <li>Haz clic en un título para ir a él.</li>
+        <li>
+          El botón <strong>☰</strong> de la barra superior muestra u oculta el panel; el editor recuerda
+          tu elección. En pantallas estrechas el panel se superpone al documento y se cierra al elegir
+          un título.
+        </li>
+        <li>
+          Si un título no aparece en el índice, probablemente está escrito subrayado (con
+          <code>---</code> o <code>===</code> en la línea siguiente): LiaScript no lo trata como sección.
+          Usa <code>#</code>.
+        </li>
+      </ul>
     </section>
 
     <section id="editor/menu">

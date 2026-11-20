@@ -7,6 +7,7 @@
 import { Crepe } from '@milkdown/crepe'
 import type { Root } from 'mdast'
 import { editorViewCtx, parserCtx, remarkCtx, serializerCtx } from '@milkdown/kit/core'
+import { NodeSelection, TextSelection } from '@milkdown/kit/prose/state'
 
 import {
   extractHeaderMacros,
@@ -18,6 +19,7 @@ import {
   type SplitDocument,
 } from '../liascript'
 import { crepeFeatureConfigs } from './crepeConfig'
+import { extractOutline, type OutlineItem } from './outline'
 
 export interface LiaEditor {
   crepe: Crepe
@@ -27,6 +29,12 @@ export interface LiaEditor {
   getMarkdown: () => string
   /** Markdown del cuerpo tal como lo serializa Milkdown (sin preservación). */
   getCanonicalBody: () => string
+  /** Índice de contenidos (títulos que abren sección en LiaScript). */
+  getOutline: () => OutlineItem[]
+  /** Elemento DOM del nodo en `pos` (para medir o desplazar). */
+  elementAt: (pos: number) => HTMLElement | null
+  /** Lleva el cursor al título en `pos` y lo desplaza a la vista. */
+  revealPosition: (pos: number) => void
   destroy: () => Promise<void>
 }
 
@@ -94,12 +102,32 @@ export async function createLiaEditor(
     return out
   }
 
+  const elementAt = (pos: number): HTMLElement | null => {
+    const dom = ctx.get(editorViewCtx).nodeDOM(pos)
+    return dom instanceof HTMLElement ? dom : null
+  }
+
   return {
     crepe,
     doc,
     preserver,
     getMarkdown: () => joinDocument(doc, preserver.restore(currentBlocks())),
     getCanonicalBody: () => crepe.getMarkdown(),
+    getOutline: () => extractOutline(ctx.get(editorViewCtx).state.doc),
+    elementAt,
+    revealPosition: (pos) => {
+      const view = ctx.get(editorViewCtx)
+      const node = view.state.doc.nodeAt(pos)
+      if (!node) return
+      // Cursor al final del título (o tarjeta seleccionada si es un bloque atómico).
+      const selection = node.isTextblock
+        ? TextSelection.create(view.state.doc, pos + node.nodeSize - 1)
+        : NodeSelection.create(view.state.doc, pos)
+      view.dispatch(view.state.tr.setSelection(selection))
+      view.focus()
+      // Desplazamiento inmediato: el suave lo interrumpe el foco del editor.
+      elementAt(pos)?.scrollIntoView?.({ block: 'start' })
+    },
     destroy: async () => {
       await crepe.destroy()
     },

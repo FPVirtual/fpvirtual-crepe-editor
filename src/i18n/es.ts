@@ -115,6 +115,13 @@ export const es: Record<string, string> = {
   'crepe.code.edit': 'Editar',
   'crepe.code.hide': 'Ocultar',
 
+  'outline.title': 'Índice',
+  'outline.label': 'Índice del material',
+  'outline.toggle': 'Mostrar u ocultar el índice',
+  'outline.close': 'Cerrar el índice',
+  'outline.empty': 'Añade títulos (menú «/» → Título, o escribe «## ») para ver aquí el índice del material.',
+  'outline.untitled': '(título vacío)',
+
   'help.button': 'Ayuda',
   'help.buttonTitle': 'Abrir la ayuda en una pestaña nueva',
 

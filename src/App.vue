@@ -6,8 +6,10 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } fr
 import { branding } from './branding'
 import AppBrand from './components/AppBrand.vue'
 import ConflictDialog from './components/ConflictDialog.vue'
+import OutlinePanel from './components/OutlinePanel.vue'
 import ThemeSelect from './components/ThemeSelect.vue'
 import { createLiaEditor, type LiaEditor } from './editor/createEditor'
+import { useOutline } from './editor/useOutline'
 import { t } from './i18n'
 import type { LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
@@ -21,7 +23,9 @@ const DRAFT_DEBOUNCE_MS = 3000
 const CHANGE_DEBOUNCE_MS = 300
 
 const root = ref<HTMLElement | null>(null)
+const header = ref<HTMLElement | null>(null)
 const editor = shallowRef<LiaEditor | null>(null)
+const outline = useOutline(editor, header)
 const status = ref<'loading' | 'ready' | 'nourl' | 'error'>('loading')
 const errorMessage = ref('')
 
@@ -157,6 +161,7 @@ onBeforeUnmount(() => {
 function onChange(): void {
   clearTimeout(changeTimer)
   changeTimer = setTimeout(checkDirty, CHANGE_DEBOUNCE_MS)
+  outline.schedule()
 }
 
 function checkDirty(): void {
@@ -305,7 +310,21 @@ function toggleDebug(): void {
 </script>
 
 <template>
-  <header class="topbar">
+  <header ref="header" class="topbar">
+    <button
+      v-if="status === 'ready'"
+      class="btn btn--icon"
+      type="button"
+      aria-controls="outline"
+      :aria-expanded="outline.open.value"
+      :title="t('outline.toggle')"
+      @click="outline.toggle"
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M4 6h16M4 12h10M4 18h13" />
+      </svg>
+      <span class="visually-hidden">{{ t('outline.toggle') }}</span>
+    </button>
     <AppBrand />
 
     <div class="topbar__title">
@@ -379,7 +398,16 @@ function toggleDebug(): void {
   <p v-else-if="status === 'nourl'" class="message">{{ t('app.noUrl') }}</p>
   <p v-else-if="status === 'error'" class="message" role="alert">{{ errorMessage }}</p>
 
-  <main v-show="status === 'ready'" ref="root" class="editor" />
+  <div v-show="status === 'ready'" class="workspace" :class="{ 'workspace--outline': outline.open.value }">
+    <OutlinePanel
+      v-show="outline.open.value"
+      :items="outline.items.value"
+      :active="outline.active.value"
+      @select="outline.select"
+      @close="outline.close"
+    />
+    <main ref="root" class="editor" />
+  </div>
 
   <section v-if="debugOutput" class="debug">
     <p>{{ debugOutput === lastSaved ? t('app.debug.unchanged') : t('app.debug.changed') }}</p>
