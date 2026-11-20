@@ -14,6 +14,7 @@ export const COLOR_TOKENS = [
   'surface', // fondo del documento, barra superior, diálogos
   'surface-muted', // menús, bloques de código, cabeceras de tabla
   'surface-sunken', // áreas hundidas (inputs de búsqueda, chips)
+  'logo-bg', // placa tras el logo del centro (clara también en temas oscuros)
   'hover', // fondo al pasar el ratón
   'selection', // selección de texto y elementos seleccionados
   // Texto

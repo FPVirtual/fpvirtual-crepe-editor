@@ -86,6 +86,23 @@ de la barra guarda la elección; en «automático» se sigue `prefers-contrast` 
 `prefers-color-scheme`. `?theme=<id>` fuerza un tema. Los tests comprueban el
 contraste WCAG de cada tema y que no haya colores literales fuera de la paleta.
 
+### Marca (logo y título)
+
+La barra superior muestra el logo del centro y el título de la app. Se
+configuran en `src/branding.ts` o, sin tocar código, con variables al compilar
+(por ejemplo en `.env.local`):
+
+```bash
+VITE_BRAND_TITLE="Editor Materiales v2"
+VITE_BRAND_LOGO=./branding/logo.png      # ruta en public/ o URL absoluta
+VITE_BRAND_LOGO_DARK=                    # opcional: logo para temas oscuros
+VITE_BRAND_LOGO_ALT="FP Virtual Aragón"
+VITE_BRAND_LINK=                         # opcional: enlace del logo
+```
+
+Sin logo oscuro propio, en el tema oscuro el logo se muestra sobre una placa
+clara (token `--md-color-logo-bg`).
+
 ## Apertura desde Moodle
 
 El editor lee la URL del material de:

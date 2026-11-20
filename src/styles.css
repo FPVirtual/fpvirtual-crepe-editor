@@ -28,6 +28,22 @@ a { color: var(--md-color-primary-text); }
   background: var(--md-color-surface);
   border-bottom: 1px solid var(--md-color-border);
 }
+/* Marca: logo del centro + título de la app (src/branding.ts). */
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--md-color-heading); text-decoration: none;
+  padding-right: 12px; border-right: 1px solid var(--md-color-border);
+}
+.brand:has(+ .topbar__title:empty) { border-right: 0; }
+.brand__logo {
+  display: block; height: 36px; width: auto;
+  padding: 2px 4px; border-radius: var(--md-radius);
+  background: var(--md-color-logo-bg);
+}
+.brand__logo--dark, :root.dark .brand__logo--light { display: none; }
+:root.dark .brand__logo--dark { display: block; background: none; }
+.brand__title { font-size: 17px; font-weight: 700; white-space: nowrap; }
+
 .topbar__title { display: flex; flex-direction: column; margin-right: auto; font-weight: 600; min-width: 0; }
 .topbar__branch { font-size: 12px; font-weight: 400; color: var(--md-color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar__status { font-size: 13px; color: var(--md-color-text-muted); }

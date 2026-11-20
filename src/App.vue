@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // M1: abre el material desde Moodle, lo edita con Crepe (bloques LiaScript
 // protegidos) y lo guarda/publica contra el plugin (contrato §4).
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 
+import { branding } from './branding'
 import ConflictDialog from './components/ConflictDialog.vue'
 import { createLiaEditor, type LiaEditor } from './editor/createEditor'
 import { t } from './i18n'
@@ -41,6 +42,10 @@ const publishUrl = ref<string | undefined>()
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
 const { preference: themePreference } = useTheme()
+
+watchEffect(() => {
+  document.title = lms.value?.file ? `${lms.value.file} · ${branding.title}` : branding.title
+})
 
 const debug = new URLSearchParams(location.search).has('debug')
 const debugOutput = ref('')
@@ -303,8 +308,21 @@ function toggleDebug(): void {
 
 <template>
   <header class="topbar">
+    <component :is="branding.link ? 'a' : 'div'" class="brand" :href="branding.link">
+      <template v-if="branding.logo">
+        <img
+          class="brand__logo"
+          :class="{ 'brand__logo--light': branding.logoDark }"
+          :src="branding.logo"
+          :alt="branding.logoAlt"
+        />
+        <img v-if="branding.logoDark" class="brand__logo brand__logo--dark" :src="branding.logoDark" :alt="branding.logoAlt" />
+      </template>
+      <span class="brand__title">{{ branding.title }}</span>
+    </component>
+
     <div class="topbar__title">
-      <span>{{ lms?.file ?? t('app.title') }}</span>
+      <span v-if="lms">{{ lms.file }}</span>
       <span v-if="lms" class="topbar__branch">{{ lms.branch }} · {{ lms.sha.slice(0, 8) }}</span>
     </div>
 

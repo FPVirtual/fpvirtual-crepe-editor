@@ -1,7 +1,6 @@
 // Textos de la interfaz en español. Las claves son estables: otro idioma
 // solo necesita un fichero con las mismas claves.
 export const es: Record<string, string> = {
-  'app.title': 'Editor de materiales',
   'app.loading': 'Cargando material…',
   'app.noUrl': 'Abre este editor desde Materiales Editables en Moodle.',
   'app.loadError': 'No se pudo cargar el material: {message}',
