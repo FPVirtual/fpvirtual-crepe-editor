@@ -6,12 +6,15 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } fr
 import { branding } from './branding'
 import AppBrand from './components/AppBrand.vue'
 import ConflictDialog from './components/ConflictDialog.vue'
+import LiaPanel from './components/LiaPanel.vue'
 import OutlinePanel from './components/OutlinePanel.vue'
+import SidePanel from './components/SidePanel.vue'
 import ThemeSelect from './components/ThemeSelect.vue'
 import { createLiaEditor, type LiaEditor } from './editor/createEditor'
 import { useOutline } from './editor/useOutline'
+import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
-import type { LmsConfig } from './liascript'
+import { extractHeaderMacros, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { materialUrl } from './lms/openUrl'
@@ -26,6 +29,23 @@ const root = ref<HTMLElement | null>(null)
 const header = ref<HTMLElement | null>(null)
 const editor = shallowRef<LiaEditor | null>(null)
 const outline = useOutline(editor, header)
+const liaPanel = usePanel('md-lia-panel', false)
+const headerMacros = computed(() => (editor.value ? extractHeaderMacros(editor.value.doc.header) : []))
+const canInsert = computed(() => Boolean(editor.value) && !(editor.value?.doc.lms?.readonly ?? false))
+
+function insertExample(source: string): void {
+  if (editor.value?.insertMarkdown(source)) liaPanel.collapseIfNarrow()
+}
+
+/**
+ * Abre la ayuda en otra pestaña desde código: así su botón «Volver al
+ * editor» puede cerrarla (los navegadores solo dejan cerrar por script las
+ * ventanas abiertas por script) y reutilizarla si ya está abierta.
+ */
+function openHelp(): void {
+  const help = window.open('./ayuda.html', 'md-ayuda')
+  help?.focus()
+}
 const status = ref<'loading' | 'ready' | 'nourl' | 'error'>('loading')
 const errorMessage = ref('')
 
@@ -311,20 +331,6 @@ function toggleDebug(): void {
 
 <template>
   <header ref="header" class="topbar">
-    <button
-      v-if="status === 'ready'"
-      class="btn btn--icon"
-      type="button"
-      aria-controls="outline"
-      :aria-expanded="outline.open.value"
-      :title="t('outline.toggle')"
-      @click="outline.toggle"
-    >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-        <path d="M4 6h16M4 12h10M4 18h13" />
-      </svg>
-      <span class="visually-hidden">{{ t('outline.toggle') }}</span>
-    </button>
     <AppBrand />
 
     <div class="topbar__title">
@@ -352,7 +358,7 @@ function toggleDebug(): void {
     </template>
 
     <ThemeSelect />
-    <a class="btn" href="./ayuda.html#editor" target="_blank" rel="noopener" :title="t('help.buttonTitle')">
+    <a class="btn" href="./ayuda.html" target="md-ayuda" :title="t('help.buttonTitle')" @click.prevent="openHelp">
       {{ t('help.button') }}
     </a>
 
@@ -398,15 +404,14 @@ function toggleDebug(): void {
   <p v-else-if="status === 'nourl'" class="message">{{ t('app.noUrl') }}</p>
   <p v-else-if="status === 'error'" class="message" role="alert">{{ errorMessage }}</p>
 
-  <div v-show="status === 'ready'" class="workspace" :class="{ 'workspace--outline': outline.open.value }">
-    <OutlinePanel
-      v-show="outline.open.value"
-      :items="outline.items.value"
-      :active="outline.active.value"
-      @select="outline.select"
-      @close="outline.close"
-    />
+  <div v-show="status === 'ready'" class="workspace">
+    <SidePanel id="outline-panel" side="left" :title="t('outline.title')" :open="outline.open.value" @toggle="outline.toggle">
+      <OutlinePanel :items="outline.items.value" :active="outline.active.value" @select="outline.select" />
+    </SidePanel>
     <main ref="root" class="editor" />
+    <SidePanel id="lia-panel" side="right" :title="t('lia.panel.title')" :open="liaPanel.open.value" @toggle="liaPanel.toggle">
+      <LiaPanel :macros="headerMacros" :can-insert="canInsert" @insert="insertExample" />
+    </SidePanel>
   </div>
 
   <section v-if="debugOutput" class="debug">

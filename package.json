@@ -12,7 +12,8 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "liaex:check": "node scripts/liaex-check.mjs",
-    "e2e": "node scripts/e2e-mock.mjs"
+    "e2e": "node scripts/e2e-mock.mjs",
+    "lia:previews": "node scripts/lia-previews.mjs"
   },
   "dependencies": {
     "@codemirror/language": "6.13.1",

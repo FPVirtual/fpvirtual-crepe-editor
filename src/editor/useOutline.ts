@@ -1,33 +1,18 @@
 // Estado del panel de índice: títulos del documento, título activo según el
-// desplazamiento y panel abierto/cerrado (recordado en el navegador).
+// desplazamiento y panel abierto/plegado (usePanel).
 
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch, type Ref, type ShallowRef } from 'vue'
 
 import type { LiaEditor } from './createEditor'
 import type { OutlineItem } from './outline'
+import { usePanel } from './usePanel'
 
-const STORAGE_KEY = 'md-outline'
 const REFRESH_MS = 300
-/** Por debajo de este ancho el panel se superpone al documento. */
-export const NARROW_QUERY = '(max-width: 999px)'
-
-const isNarrow = (): boolean => typeof matchMedia === 'function' && matchMedia(NARROW_QUERY).matches
-
-function initialOpen(): boolean {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'open') return true
-    if (stored === 'closed') return false
-  } catch {
-    // Sin almacenamiento: se decide por el ancho.
-  }
-  return !isNarrow()
-}
 
 export function useOutline(editor: ShallowRef<LiaEditor | null>, header: Ref<HTMLElement | null>) {
   const items = shallowRef<OutlineItem[]>([])
   const active = ref(-1)
-  const open = ref(initialOpen())
+  const panel = usePanel('md-outline')
   let timer: ReturnType<typeof setTimeout> | undefined
   let frame = 0
   let resize: ResizeObserver | undefined
@@ -67,21 +52,12 @@ export function useOutline(editor: ShallowRef<LiaEditor | null>, header: Ref<HTM
     timer = setTimeout(refresh, REFRESH_MS)
   }
 
-  function setOpen(value: boolean): void {
-    open.value = value
-    try {
-      localStorage.setItem(STORAGE_KEY, value ? 'open' : 'closed')
-    } catch {
-      // Sin almacenamiento: dura la sesión.
-    }
-  }
-
   function select(index: number): void {
     const item = items.value[index]
     if (!item || !editor.value) return
     editor.value.revealPosition(item.pos)
     active.value = index
-    if (isNarrow()) open.value = false // en móvil el panel tapa el documento
+    panel.collapseIfNarrow() // en móvil el panel tapa el documento
   }
 
   watch(editor, refresh)
@@ -110,11 +86,10 @@ export function useOutline(editor: ShallowRef<LiaEditor | null>, header: Ref<HTM
   return {
     items,
     active,
-    open,
+    open: panel.open,
+    toggle: panel.toggle,
     refresh,
     schedule,
     select,
-    toggle: () => setOpen(!open.value),
-    close: () => setOpen(false),
   }
 }

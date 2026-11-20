@@ -1,4 +1,5 @@
 export { cardViewAt, LiaCardView, liaCardView } from './card-view'
+export { CATEGORIES, exampleImage, examplesByCategory, LIA_EXAMPLES, type LiaCategory, type LiaExample } from './catalog'
 export { classifyBlock, type LiaKind } from './classify'
 export { joinDocument, splitDocument, type LmsConfig, type SplitDocument } from './header'
 export { fillCard, LIA_BLOCK, liaBlockNode, remarkLiaBlocks, remarkLiaPlugin } from './lia-block'

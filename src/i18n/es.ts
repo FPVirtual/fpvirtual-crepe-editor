@@ -72,15 +72,6 @@ export const es: Record<string, string> = {
   'lia.edit.apply': 'Aplicar',
   'lia.edit.cancel': 'Cancelar',
 
-  'lia.template.quizSingle': 'Quiz: opción única',
-  'lia.template.quizMultiple': 'Quiz: opción múltiple',
-  'lia.template.quizText': 'Quiz: respuesta corta',
-  'lia.template.quizSolution': 'Quiz: con pista y solución',
-  'lia.template.quizMatrix': 'Quiz: matriz verdadero/falso',
-  'lia.template.effect': 'Animación: aparece en el paso N',
-  'lia.template.effectBlock': 'Animación: bloque completo',
-  'lia.template.narration': 'Narración (texto a voz)',
-  'lia.template.codeRun': 'Código ejecutable (JavaScript)',
   'lia.template.macro': 'Macro de la cabecera: @{name}',
 
   'crepe.placeholder': 'Escribe, o pulsa «/» para insertar un bloque…',
@@ -117,10 +108,25 @@ export const es: Record<string, string> = {
 
   'outline.title': 'Índice',
   'outline.label': 'Índice del material',
-  'outline.toggle': 'Mostrar u ocultar el índice',
-  'outline.close': 'Cerrar el índice',
   'outline.empty': 'Añade títulos (menú «/» → Título, o escribe «## ») para ver aquí el índice del material.',
   'outline.untitled': '(título vacío)',
+
+  'panel.show': 'Mostrar el panel «{name}»',
+  'panel.hide': 'Plegar el panel «{name}»',
+
+  'lia.panel.title': 'LiaScript',
+  'lia.panel.intro': 'Funciones de LiaScript que el editor visual no muestra. Despliega un ejemplo para ver cómo queda en el curso e insértalo donde está el cursor, o cópialo.',
+  'lia.panel.search': 'Buscar (quiz, vídeo, animación…)',
+  'lia.panel.noResults': 'Ningún ejemplo coincide con la búsqueda.',
+  'lia.panel.macros': 'Macros de este material',
+  'lia.panel.macroDescription': 'Definida en la cabecera de este material. Cambia el texto entre comillas invertidas.',
+  'lia.panel.imageAlt': 'Resultado en LiaScript: {title}',
+  'lia.panel.imageCaption': 'Así se ve en el curso',
+  'lia.panel.insert': 'Insertar',
+  'lia.panel.insertTitle': 'Insertar tras el bloque donde está el cursor',
+  'lia.panel.copy': 'Copiar',
+  'lia.panel.copied': 'Copiado',
+  'lia.panel.docs': 'Documentación completa de LiaScript',
 
   'help.button': 'Ayuda',
   'help.buttonTitle': 'Abrir la ayuda en una pestaña nueva',

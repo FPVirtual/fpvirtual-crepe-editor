@@ -1,69 +1,70 @@
 <script setup lang="ts">
-// Ayuda: dos secciones navegables por ancla (#editor, #liascript) para que
-// el editor pueda enlazar directamente a cada una.
-import { nextTick, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
+// Ayuda del editor. Las funciones avanzadas de LiaScript (quizzes,
+// animaciones…) no están aquí: viven en el panel «LiaScript» del editor, donde
+// se pueden insertar directamente.
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { branding } from '../branding'
 import AppBrand from '../components/AppBrand.vue'
 import ThemeSelect from '../components/ThemeSelect.vue'
 import HelpEditor from './HelpEditor.vue'
-import HelpLiascript from './HelpLiascript.vue'
 
-type Section = 'editor' | 'liascript'
+const backHint = ref(false)
 
-const SECTIONS: { id: Section; title: string }[] = [
-  { id: 'editor', title: 'Cómo usar el editor' },
-  { id: 'liascript', title: 'LiaScript avanzado' },
-]
-
-const current = ref<Section>('editor')
-
-/** `#seccion` o `#seccion/apartado`: elige la sección y, ya pintada, baja al apartado. */
+/** `#editor/apartado`: baja al apartado una vez pintada la página. */
 async function fromHash(): Promise<void> {
-  const hash = decodeURIComponent(location.hash.slice(1))
-  current.value = hash.split('/')[0] === 'liascript' ? 'liascript' : 'editor'
   await nextTick()
+  const hash = decodeURIComponent(location.hash.slice(1))
   if (hash.includes('/')) document.getElementById(hash)?.scrollIntoView()
-  else scrollTo({ top: 0 })
 }
 
 const onHashChange = (): void => void fromHash()
 
 onMounted(() => {
+  document.title = `Ayuda · ${branding.title}`
   void fromHash()
   addEventListener('hashchange', onHashChange)
 })
 onBeforeUnmount(() => removeEventListener('hashchange', onHashChange))
 
-watchEffect(() => {
-  const section = SECTIONS.find((s) => s.id === current.value)!
-  document.title = `${section.title} · Ayuda · ${branding.title}`
-})
+/**
+ * Vuelve a la pestaña del editor. La ayuda se abre desde el editor con
+ * window.open, así que puede cerrarse por script; si se abrió de otra forma
+ * (enlace directo, marcador), se vuelve atrás o se indica cómo volver.
+ */
+function backToEditor(): void {
+  try {
+    window.opener?.focus()
+  } catch {
+    // Otra ventana sin acceso: se intenta cerrar igualmente.
+  }
+  window.close()
+  setTimeout(() => {
+    if (window.closed) return
+    if (history.length > 1) history.back()
+    else backHint.value = true
+  }, 150)
+}
 </script>
 
 <template>
-  <div class="help-head">
   <header class="topbar">
+    <button class="btn btn--primary help-back" type="button" @click="backToEditor">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+      Volver al editor
+    </button>
     <AppBrand subtitle="Ayuda" />
     <div class="topbar__title" />
     <ThemeSelect />
   </header>
 
-  <nav class="help-tabs" aria-label="Secciones de la ayuda">
-    <a
-      v-for="s in SECTIONS"
-      :key="s.id"
-      class="help-tabs__tab"
-      :href="`#${s.id}`"
-      :aria-current="current === s.id ? 'page' : undefined"
-    >
-      {{ s.title }}
-    </a>
-  </nav>
-  </div>
+  <p v-if="backHint" class="banner" role="status">
+    Esta pestaña no se puede cerrar automáticamente: ciérrala (Ctrl+W) para volver al editor.
+  </p>
 
   <main class="help">
-    <HelpEditor v-if="current === 'editor'" />
-    <HelpLiascript v-else />
+    <HelpEditor />
   </main>
 </template>

@@ -106,13 +106,31 @@ VITE_BRAND_LINK=                         # opcional: enlace del logo
 Sin logo oscuro propio, en el tema oscuro el logo se muestra sobre una placa
 clara (token `--md-color-logo-bg`).
 
+### Paneles laterales
+
+Dos paneles plegables con su propio icono en la esquina superior derecha
+(plegados quedan como una franja con el icono; se recuerda su estado):
+
+- **Índice** (izquierda): títulos que abren sección en LiaScript.
+- **LiaScript** (derecha): ejemplos de todo lo que LiaScript ofrece y el
+  editor no muestra (quizzes, encuestas, animaciones, narración, código,
+  multimedia, formato, gráficos), con imagen del resultado real, buscador y
+  botones *Insertar* / *Copiar*; incluye las macros de la cabecera. Los
+  ejemplos viven en `src/liascript/catalog.ts`, que también alimenta el menú
+  «/» y los tests.
+
+Las imágenes (`public/lia-examples/*.webp`) se generan con el LiaScript real:
+
+```bash
+npm run lia:previews          # todos (Docker + liascript/exporter + Chrome)
+npm run lia:previews -- chart # solo algunos
+```
+
 ### Ayuda
 
-`ayuda.html` (botón «Ayuda» de la barra, en pestaña nueva) tiene dos
-secciones enlazables: `#editor` (uso del editor, adaptado de la documentación
-de Crepe) y `#liascript` (quizzes, diapositivas, animaciones, narración,
-macros, código ejecutable). No carga Crepe. Los ejemplos que coinciden con el
-menú «/» salen de `LIA_TEMPLATES`, así que no se desincronizan.
+`ayuda.html` (botón «Ayuda», en otra pestaña con botón «Volver al editor»)
+explica el uso del editor, adaptado de la documentación de Crepe. No carga
+Crepe. Las funciones avanzadas de LiaScript están en el panel lateral.
 
 ## Apertura desde Moodle
 

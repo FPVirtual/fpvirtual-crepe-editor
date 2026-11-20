@@ -3,6 +3,12 @@
 // (milkdown.dev) a la configuración de este editor: menús en español, sin IA,
 // sin barra superior y sin subida de imágenes.
 
+import CodeSample from './CodeSample.vue'
+
+const SLIDES =
+  '# Unidad 3: Bases de datos\n\n## Introducción\n\nTexto de la primera sección…\n\n' +
+  '## Modelo relacional\n\n### Tablas y claves\n\nTexto de una subsección…'
+
 const SHORTCUTS: { keys: string[][]; action: string }[] = [
   { keys: [['Ctrl', 'S']], action: 'Guardar en Moodle' },
   { keys: [['Ctrl', 'Z']], action: 'Deshacer' },
@@ -49,6 +55,7 @@ const MARKDOWN: { type: string; result: string }[] = [
 
     <nav class="help__toc" aria-label="Contenido de esta sección">
       <a href="#editor/escribir">Escribir y dar formato</a>
+      <a href="#editor/diapositivas">Diapositivas y secciones</a>
       <a href="#editor/indice">El índice</a>
       <a href="#editor/menu">El menú «/»</a>
       <a href="#editor/bloques">Mover y añadir bloques</a>
@@ -83,7 +90,26 @@ const MARKDOWN: { type: string; result: string }[] = [
       </table>
       <p class="help__note">
         Los títulos son importantes: en LiaScript <strong>cada título empieza una sección o
-        diapositiva</strong>. Consulta <a href="#liascript/diapositivas">Diapositivas y secciones</a>.
+        diapositiva</strong>. Consulta <a href="#editor/diapositivas">Diapositivas y secciones</a>.
+      </p>
+    </section>
+
+    <section id="editor/diapositivas">
+      <h2>Diapositivas y secciones</h2>
+      <p>
+        En LiaScript <strong>cada título empieza una sección</strong>: en modo libro es un apartado del
+        índice y en modo presentación, una diapositiva. Basta con usar títulos (menú «/» → Título, o
+        escribir <code>#</code>, <code>##</code>…).
+      </p>
+      <ul>
+        <li><code>#</code> (Título 1): el título del material. Úsalo una sola vez, al principio.</li>
+        <li><code>##</code> (Título 2): cada sección o diapositiva principal.</li>
+        <li><code>###</code> (Título 3) y siguientes: subsecciones, anidadas en el índice.</li>
+      </ul>
+      <CodeSample :code="SLIDES" label="Estructura de un material (en Markdown)" />
+      <p>
+        Una diapositiva con mucho contenido se lee mal en modo presentación: divídela con más títulos,
+        o usa las animaciones del panel <strong>LiaScript</strong> para mostrarla por pasos.
       </p>
     </section>
 
@@ -122,8 +148,8 @@ const MARKDOWN: { type: string; result: string }[] = [
         <li><strong>Avanzado</strong>: imagen, bloque de código, tabla y fórmula (LaTeX).</li>
         <li>
           <strong>LiaScript</strong>: quizzes, animaciones, narración, código ejecutable y las macros
-          que define tu material (por ejemplo <code>@nota</code>). Ver
-          <a href="#liascript">LiaScript avanzado</a>.
+          que define tu material (por ejemplo <code>@nota</code>). Hay muchos más en el panel
+          <a href="#editor/liascript">LiaScript</a>.
         </li>
       </ul>
     </section>
@@ -180,24 +206,28 @@ const MARKDOWN: { type: string; result: string }[] = [
     </section>
 
     <section id="editor/liascript">
-      <h2>Bloques LiaScript (tarjetas)</h2>
+      <h2>Funciones LiaScript: panel y tarjetas</h2>
       <p>
-        Algunas partes del material usan sintaxis propia de LiaScript que el editor visual no sabe
-        mostrar: quizzes, animaciones, narración, macros, código ejecutable… Aparecen como
-        <strong>tarjetas</strong> con su código, para que nada se pierda al guardar.
+        LiaScript añade a Markdown autoevaluaciones, encuestas, animaciones, narración, código ejecutable,
+        vídeo, gráficos… El editor visual no puede mostrarlas tal como se verán en el curso, así que:
       </p>
       <ul>
-        <li>Para cambiar una tarjeta, pulsa <em>Editar</em> o haz doble clic sobre ella.</li>
         <li>
-          Modifica el código y pulsa <em>Aplicar</em> (<kbd>Ctrl</kbd>+<kbd>Intro</kbd>), o
-          <em>Cancelar</em> (<kbd>Esc</kbd>).
+          El panel <strong>LiaScript</strong>, a la derecha (despliégalo con su icono), tiene
+          <strong>ejemplos de todas</strong>, con una <strong>imagen de cómo se ven en el curso</strong>.
+          Usa el buscador, despliega un ejemplo y pulsa <em>Insertar</em> (se añade tras el bloque donde
+          está el cursor) o <em>Copiar</em>. También lista las macros que define tu material.
         </li>
-        <li>Si dejas el texto vacío y aplicas, la tarjeta se borra.</li>
-        <li>Para crear una nueva, usa el grupo <strong>LiaScript</strong> del menú «/».</li>
+        <li>
+          En el documento, esas partes aparecen como <strong>tarjetas</strong> con su código. Para
+          cambiarlas, pulsa <em>Editar</em> o haz doble clic; aplica con <kbd>Ctrl</kbd>+<kbd>Intro</kbd>
+          o cancela con <kbd>Esc</kbd>. Si dejas el texto vacío, la tarjeta se borra.
+        </li>
       </ul>
       <p class="help__note">
         No escribas sintaxis LiaScript (como <code>[(X)]</code> o <code v-pre>{{1}}</code>) en un párrafo
-        normal: el editor la trataría como texto y dejaría de funcionar. Usa siempre una tarjeta.
+        normal: el editor la trataría como texto y dejaría de funcionar. Usa el panel, el menú «/» o una
+        tarjeta.
       </p>
     </section>
 

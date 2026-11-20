@@ -35,6 +35,11 @@ export interface LiaEditor {
   elementAt: (pos: number) => HTMLElement | null
   /** Lleva el cursor al título en `pos` y lo desplaza a la vista. */
   revealPosition: (pos: number) => void
+  /**
+   * Inserta Markdown (p. ej. un ejemplo LiaScript) tras el bloque del cursor,
+   * o en su lugar si es un párrafo vacío. Devuelve false en solo lectura.
+   */
+  insertMarkdown: (markdown: string) => boolean
   destroy: () => Promise<void>
 }
 
@@ -127,6 +132,27 @@ export async function createLiaEditor(
       view.focus()
       // Desplazamiento inmediato: el suave lo interrumpe el foco del editor.
       elementAt(pos)?.scrollIntoView?.({ block: 'start' })
+    },
+    insertMarkdown: (markdown) => {
+      const view = ctx.get(editorViewCtx)
+      if (!view.editable) return false
+      const { state } = view
+      const { selection } = state
+      const content = parser(markdown).content
+      // Bloque de nivel superior que contiene el cursor (o el nodo seleccionado).
+      const $from = selection.$from
+      const topStart = $from.depth >= 1 ? $from.before(1) : selection.from
+      const topEnd = $from.depth >= 1 ? $from.after(1) : selection.to
+      const top = state.doc.nodeAt(topStart)
+      const replace = top?.type.name === 'paragraph' && top.content.size === 0
+      const at = replace ? topStart : topEnd
+      const tr = replace ? state.tr.replaceWith(topStart, topEnd, content) : state.tr.insert(topEnd, content)
+      const after = Math.min(at + content.size, tr.doc.content.size)
+      tr.setSelection(TextSelection.near(tr.doc.resolve(after), -1))
+      view.dispatch(tr)
+      view.focus()
+      elementAt(at)?.scrollIntoView?.({ block: 'center' })
+      return true
     },
     destroy: async () => {
       await crepe.destroy()

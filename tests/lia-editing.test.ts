@@ -10,7 +10,16 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { insertLiaSource } from '../src/editor/crepeConfig'
 import { createLiaEditor, type LiaEditor } from '../src/editor/createEditor'
-import { cardViewAt, extractHeaderMacros, LIA_BLOCK, LIA_TEMPLATES, macroSource, splitDocument } from '../src/liascript'
+import {
+  cardViewAt,
+  CATEGORIES,
+  extractHeaderMacros,
+  LIA_BLOCK,
+  LIA_EXAMPLES,
+  LIA_TEMPLATES,
+  macroSource,
+  splitDocument,
+} from '../src/liascript'
 
 let editor: LiaEditor | null = null
 
@@ -35,18 +44,34 @@ function liaBlocks(ed: LiaEditor): { pos: number; value: string; kind: string }[
   return out
 }
 
-describe('plantillas LiaScript', () => {
-  it.each(LIA_TEMPLATES.map((tpl) => [tpl.key, tpl.source] as const))(
-    '%s se reconoce como un único bloque LiaScript y se guarda literal',
-    async (_key, source) => {
-      const markdown = `# Título\n\nPregunta o contexto.\n\n${source}\n`
+describe('catálogo de ejemplos LiaScript', () => {
+  it.each(LIA_EXAMPLES.map((e) => [e.key, e] as const))(
+    '%s se guarda literal y entra como tarjeta LiaScript (salvo los nativos)',
+    async (_key, example) => {
+      const markdown = `# Título\n\nContexto.\n\n${example.source}\n`
       const ed = await open(markdown)
-      expect(liaBlocks(ed).map((b) => b.value)).toEqual([source])
       expect(ed.getMarkdown()).toBe(markdown)
+      const view = ed.crepe.editor.ctx.get(editorViewCtx)
+      const types: string[] = []
+      // Sin el párrafo vacío final que añade Milkdown.
+      view.state.doc.forEach((node) => {
+        if (node.type.name !== 'paragraph' || node.content.size > 0) types.push(node.type.name)
+      })
+      const body = types.slice(2) // título y párrafo de contexto
+      if (example.native) expect(body).not.toContain(LIA_BLOCK)
+      else if (example.mixed) expect(body).toContain(LIA_BLOCK)
+      else expect(body.every((t) => t === LIA_BLOCK), body.join(',')).toBe(true)
     },
   )
 
-  it('las de quiz se clasifican como quiz y las de animación como efecto', async () => {
+  it('las claves son únicas y cada categoría tiene ejemplos', () => {
+    const keys = LIA_EXAMPLES.map((e) => e.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    for (const c of CATEGORIES) expect(LIA_EXAMPLES.some((e) => e.category === c.id), c.id).toBe(true)
+  })
+
+  it('las plantillas del menú «/» salen del catálogo y se clasifican bien', async () => {
+    expect(LIA_TEMPLATES.map((t) => t.key)).toEqual(LIA_EXAMPLES.filter((e) => e.menu).map((e) => e.key))
     const kinds: Record<string, string> = {}
     for (const tpl of LIA_TEMPLATES) {
       const ed = await open(`${tpl.source}\n`)
@@ -146,5 +171,39 @@ describe('inserción desde el menú «/»', () => {
     expect(blocks.map((b) => b.value)).toEqual([quiz.source])
     expect(cardViewAt(view, blocks[0].pos)?.editing).toBe(true)
     expect(ed.getMarkdown()).toBe(`# Título\n\nTexto.\n\n${quiz.source}\n`)
+  })
+})
+
+describe('insertar desde el panel LiaScript', () => {
+  const quiz = () => LIA_EXAMPLES.find((e) => e.key === 'quiz-single')!.source
+
+  it('inserta tras el bloque donde está el cursor', async () => {
+    const ed = await open('# Título\n\nPrimero.\n\nSegundo.\n')
+    const view = ed.crepe.editor.ctx.get(editorViewCtx)
+    // Cursor dentro de «Primero.»
+    let pos = 0
+    view.state.doc.forEach((node, offset) => {
+      if (node.textContent === 'Primero.') pos = offset + 2
+    })
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+    expect(ed.insertMarkdown(quiz())).toBe(true)
+    expect(ed.getMarkdown()).toBe(`# Título\n\nPrimero.\n\n${quiz()}\n\nSegundo.\n`)
+  })
+
+  it('sustituye un párrafo vacío', async () => {
+    const ed = await open('# Título\n\nTexto.\n')
+    const view = ed.crepe.editor.ctx.get(editorViewCtx)
+    const end = view.state.doc.content.size
+    const tr = view.state.tr.insert(end, view.state.schema.nodes.paragraph.create())
+    view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end + 1)))
+    ed.insertMarkdown(quiz())
+    expect(ed.getMarkdown()).toBe(`# Título\n\nTexto.\n\n${quiz()}\n`)
+  })
+
+  it('no inserta en solo lectura', async () => {
+    const ed = await open('# Título\n')
+    ed.crepe.setReadonly(true)
+    expect(ed.insertMarkdown(quiz())).toBe(false)
+    expect(ed.getMarkdown()).toBe('# Título\n')
   })
 })

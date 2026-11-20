@@ -94,7 +94,7 @@ export function crepeFeatureConfigs(macros: HeaderMacro[] = []): NonNullable<Cre
         const group = builder.addGroup('liascript', t('crepe.menu.liascript'))
         for (const template of LIA_TEMPLATES) {
           group.addItem(`lia-${template.key}`, {
-            label: t(template.label),
+            label: template.label,
             icon: LIA_ICON,
             onRun: (ctx) => insertLiaSource(ctx, template.source),
           })

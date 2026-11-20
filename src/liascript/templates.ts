@@ -1,79 +1,29 @@
-// Plantillas de bloques LiaScript para el menú «/» y la ayuda.
+// Plantillas de bloques LiaScript para el menú «/» (salen de catalog.ts) y
+// macros definidas en la cabecera del material.
 //
 // Crepe no sabe escribir sintaxis LiaScript: si se teclea en un párrafo, la
 // escapa al guardar (`[(X)]` → `\[(X)]`). Por eso estos bloques se insertan
 // como tarjetas LiaScript, con su fuente literal, y se editan como texto.
-// La sintaxis sigue la de fixtures/real/demo-liascript.md (validada con liaex).
+
+import { LIA_EXAMPLES } from './catalog'
 
 export interface LiaTemplate {
-  /** Clave estable (menú «/», tests). */
+  /** Clave estable (menú «/», tests): la del ejemplo del catálogo. */
   key: string
-  /** Clave i18n del nombre visible. */
+  /** Nombre visible en el menú. */
   label: string
   /** Fuente LiaScript que se inserta. */
   source: string
 }
 
-export const LIA_TEMPLATES: readonly LiaTemplate[] = [
-  {
-    key: 'quiz-single',
-    label: 'lia.template.quizSingle',
-    source: '[( )] Opción incorrecta\n[(X)] Opción correcta\n[( )] Otra opción incorrecta',
-  },
-  {
-    key: 'quiz-multiple',
-    label: 'lia.template.quizMultiple',
-    source: '[[X]] Opción correcta\n[[ ]] Opción incorrecta\n[[X]] Otra opción correcta',
-  },
-  {
-    key: 'quiz-text',
-    label: 'lia.template.quizText',
-    source: '[[respuesta]]',
-  },
-  {
-    key: 'quiz-solution',
-    label: 'lia.template.quizSolution',
-    source:
-      '[[respuesta]]\n[[?]] Pista para el alumnado.\n' +
-      '****************************************************************\n' +
-      'Explicación de la solución.\n' +
-      '****************************************************************',
-  },
-  {
-    key: 'quiz-matrix',
-    label: 'lia.template.quizMatrix',
-    source:
-      '[[Verdadero] (Falso)]\n' +
-      '[    (X)       ( )  ]  Primera afirmación (verdadera).\n' +
-      '[    ( )       (X)  ]  Segunda afirmación (falsa).',
-  },
-  {
-    key: 'effect',
-    label: 'lia.template.effect',
-    source: '{{1}}\nEste párrafo aparece en el paso 1.',
-  },
-  {
-    key: 'effect-block',
-    label: 'lia.template.effectBlock',
-    source:
-      '{{2}}\n' +
-      '********************************************************************\n' +
-      'Este bloque completo aparece en el paso 2.\n\n' +
-      '* puede contener listas\n' +
-      '* y varios párrafos\n' +
-      '********************************************************************',
-  },
-  {
-    key: 'narration',
-    label: 'lia.template.narration',
-    source: '--{{1}}--\nTexto que lee el narrador en el paso 1 (modo presentación).',
-  },
-  {
-    key: 'code-run',
-    label: 'lia.template.codeRun',
-    source: '```js\nconsole.log("Hola")\n```\n<script>@input</script>',
-  },
-]
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1)
+
+/** Plantillas del menú «/»: los ejemplos del catálogo marcados con `menu`. */
+export const LIA_TEMPLATES: readonly LiaTemplate[] = LIA_EXAMPLES.filter((e) => e.menu).map((e) => ({
+  key: e.key,
+  label: e.category === 'quiz' ? `Quiz: ${lowerFirst(e.title)}` : e.title,
+  source: e.source,
+}))
 
 export interface HeaderMacro {
   name: string
