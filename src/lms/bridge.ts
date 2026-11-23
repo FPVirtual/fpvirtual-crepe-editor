@@ -14,10 +14,10 @@ export type SaveResult =
   | { status: 'auth_error'; message?: string }
   | { status: 'error'; message: string }
 
-export type PublishFormat = 'h5p' | 'epub' | 'pdf' | 'scorm'
+export type PublishFormat = 'h5p' | 'epub' | 'pdf' | 'scorm' | 'web' | 'pdfcontenido'
 
 export type PublishResult =
-  | { status: 'published'; cmid?: number; url?: string }
+  | { status: 'published'; cmid?: number; url?: string; avisos: string[] }
   | { status: 'auth_error'; message?: string }
   | { status: 'error'; message: string }
 
@@ -110,7 +110,9 @@ export class LmsBridge {
     if ('error' in response) return { status: 'error', message: response.error }
     const { status, json } = response
     if (status >= 200 && status < 300) {
-      return { status: 'published', cmid: typeof json.cmid === 'number' ? json.cmid : undefined, url: str(json.url) }
+      // avisos: sintaxis LiaScript que la web o el PDF de contenido no representan.
+      const avisos = Array.isArray(json.avisos) ? json.avisos.map(String) : []
+      return { status: 'published', cmid: typeof json.cmid === 'number' ? json.cmid : undefined, url: str(json.url), avisos }
     }
     if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }
     return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }

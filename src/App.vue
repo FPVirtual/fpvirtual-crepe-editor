@@ -66,6 +66,7 @@ const publishFormat = ref<PublishFormat>('h5p')
 const publishing = ref(false)
 const publishMessage = ref('')
 const publishUrl = ref<string | undefined>()
+const publishAvisos = ref<string[]>([])
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
 watchEffect(() => {
@@ -292,6 +293,7 @@ async function publish(): Promise<void> {
   const b = bridge
   if (!b || busy.value) return
   publishUrl.value = undefined
+  publishAvisos.value = []
   if (dirty.value) {
     publishMessage.value = t('publish.saveFirst')
     return
@@ -303,6 +305,7 @@ async function publish(): Promise<void> {
   if (result.status === 'published') {
     publishMessage.value = t('publish.done')
     publishUrl.value = result.url
+    publishAvisos.value = result.avisos
   } else if (result.status === 'auth_error') {
     publishMessage.value = result.message ? t('publish.error', { message: result.message }) : ''
     if (!result.message) saveState.value = 'auth'
@@ -359,6 +362,8 @@ function toggleDebug(): void {
         <option value="epub">{{ t('publish.epub') }}</option>
         <option value="pdf">{{ t('publish.pdf') }}</option>
         <option value="scorm">{{ t('publish.scorm') }}</option>
+        <option value="web">{{ t('publish.web') }}</option>
+        <option value="pdfcontenido">{{ t('publish.pdfcontenido') }}</option>
       </select>
       <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
     </template>
@@ -404,6 +409,12 @@ function toggleDebug(): void {
     <a v-if="publishUrl" class="btn" :href="publishUrl" target="_blank" rel="noopener noreferrer">
       {{ t('publish.open') }}
     </a>
+    <template v-if="publishAvisos.length">
+      <p class="banner-avisos">{{ t('publish.avisos') }}</p>
+      <ul>
+        <li v-for="(a, i) in publishAvisos" :key="i">{{ a }}</li>
+      </ul>
+    </template>
   </div>
 
   <p v-if="status === 'loading'" class="message">{{ t('app.loading') }}</p>

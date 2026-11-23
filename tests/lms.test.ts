@@ -96,8 +96,13 @@ describe('LmsBridge: token, publicación y recarga', () => {
   it('publica con el SHA actual y devuelve la URL del curso', async () => {
     const calls: { url: string; body: Record<string, unknown> }[] = []
     const bridge = new LmsBridge(CFG, null, fakeFetch(200, { status: 'published', cmid: 7, url: 'https://moodle/course/view.php?id=2' }, calls))
-    expect(await bridge.publish('epub')).toEqual({ status: 'published', cmid: 7, url: 'https://moodle/course/view.php?id=2' })
+    expect(await bridge.publish('epub')).toEqual({ status: 'published', cmid: 7, url: 'https://moodle/course/view.php?id=2', avisos: [] })
     expect(calls[0].body).toEqual({ file: CFG.file, sha: CFG.sha, format: 'epub', token: 'tok1' })
+  })
+
+  it('publica la web y devuelve los avisos del lector LiaScript', async () => {
+    const bridge = new LmsBridge(CFG, null, fakeFetch(200, { status: 'published', cmid: 8, url: 'u', avisos: ['12 · sintaxis · @mermaid'] }))
+    expect(await bridge.publish('web')).toEqual({ status: 'published', cmid: 8, url: 'u', avisos: ['12 · sintaxis · @mermaid'] })
   })
 
   it('readonly: no guarda ni publica', () => {
