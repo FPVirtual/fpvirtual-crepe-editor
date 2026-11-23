@@ -132,6 +132,18 @@ npm run lia:previews -- chart # solo algunos
 explica el uso del editor, adaptado de la documentación de Crepe. No carga
 Crepe. Las funciones avanzadas de LiaScript están en el panel lateral.
 
+## Tema de los contenidos exportados
+
+Los contenidos publicados (SCORM, H5P, PDF, ePub) los renderiza LiaScript,
+no el editor. Para que tengan el mismo aspecto, `src/theme/liascript.ts`
+traduce un tema del editor a una hoja CSS para el runtime de LiaScript. El
+engine la incluye y la aplica al exportar. Si cambia el tema, hay que
+regenerarla y copiarla al engine:
+
+```bash
+npm run theme:liascript -- verde ../moodle-liaeditor-git/engine/src/materiales_liascript/publish/themes/verde.css
+```
+
 ## Apertura desde Moodle
 
 El editor lee la URL del material de:
