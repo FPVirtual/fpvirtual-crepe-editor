@@ -41,6 +41,7 @@ export const es: Record<string, string> = {
   'publish.h5p': 'H5P (actividad interactiva)',
   'publish.epub': 'ePub (libro electrónico)',
   'publish.pdf': 'PDF',
+  'publish.scorm': 'SCORM 2004 (paquete con seguimiento)',
   'publish.saveFirst': 'Guarda los cambios antes de publicar.',
   'publish.running': 'Generando y publicando… puede tardar unos segundos.',
   'publish.done': 'Publicado en el curso.',

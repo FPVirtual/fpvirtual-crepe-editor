@@ -14,7 +14,7 @@ export type SaveResult =
   | { status: 'auth_error'; message?: string }
   | { status: 'error'; message: string }
 
-export type PublishFormat = 'h5p' | 'epub' | 'pdf'
+export type PublishFormat = 'h5p' | 'epub' | 'pdf' | 'scorm'
 
 export type PublishResult =
   | { status: 'published'; cmid?: number; url?: string }

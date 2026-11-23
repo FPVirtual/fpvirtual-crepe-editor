@@ -358,6 +358,7 @@ function toggleDebug(): void {
         <option value="h5p">{{ t('publish.h5p') }}</option>
         <option value="epub">{{ t('publish.epub') }}</option>
         <option value="pdf">{{ t('publish.pdf') }}</option>
+        <option value="scorm">{{ t('publish.scorm') }}</option>
       </select>
       <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
     </template>
