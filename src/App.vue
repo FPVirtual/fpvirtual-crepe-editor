@@ -18,6 +18,7 @@ import { extractHeaderMacros, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { materialUrl } from './lms/openUrl'
+import { formatCommitDate } from './lms/version'
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'unchanged' | 'error' | 'invalid' | 'auth'
 
@@ -29,6 +30,8 @@ const root = ref<HTMLElement | null>(null)
 const header = ref<HTMLElement | null>(null)
 const editor = shallowRef<LiaEditor | null>(null)
 const outline = useOutline(editor, header)
+/** Fecha y hora del último commit del material, si el plugin la envía (o tras guardar). */
+const versionDate = computed(() => formatCommitDate(lms.value?.committed_at))
 const liaPanel = usePanel('md-lia-panel', false)
 const headerMacros = computed(() => (editor.value ? extractHeaderMacros(editor.value.doc.header) : []))
 const canInsert = computed(() => Boolean(editor.value) && !(editor.value?.doc.lms?.readonly ?? false))
@@ -335,7 +338,9 @@ function toggleDebug(): void {
 
     <div class="topbar__title">
       <span v-if="lms">{{ lms.file }}</span>
-      <span v-if="lms" class="topbar__branch">{{ lms.branch }} · {{ lms.sha.slice(0, 8) }}</span>
+      <span v-if="lms" class="topbar__branch" :title="`${lms.branch} · ${lms.sha}`">
+        {{ lms.branch }}<template v-if="versionDate"> · {{ t('app.versionDate', { date: versionDate }) }}</template>
+      </span>
     </div>
 
     <span v-if="lms?.readonly" class="badge">{{ t('app.readonly') }}</span>

@@ -5,6 +5,7 @@ export const es: Record<string, string> = {
   'app.noUrl': 'Abre este editor desde Materiales Editables en Moodle.',
   'app.loadError': 'No se pudo cargar el material: {message}',
   'app.readonly': 'Solo lectura',
+  'app.versionDate': 'versión del {date}',
   'app.debug.show': 'Ver Markdown a guardar',
   'app.debug.hide': 'Ocultar Markdown',
   'app.debug.unchanged': 'Sin cambios respecto al original',

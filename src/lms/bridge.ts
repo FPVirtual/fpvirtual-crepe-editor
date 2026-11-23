@@ -71,6 +71,8 @@ export class LmsBridge {
 
     if (status >= 200 && status < 300 && typeof json.new_sha === 'string') {
       this.#cfg.sha = json.new_sha
+      // El guardado crea el commit ahora: si el servidor no da su fecha, vale la actual.
+      this.#cfg.committed_at = str(json.committed_at) ?? new Date().toISOString()
       if (typeof json.token === 'string') this.#cfg.token = json.token
       return { status: 'saved', sha: json.new_sha }
     }

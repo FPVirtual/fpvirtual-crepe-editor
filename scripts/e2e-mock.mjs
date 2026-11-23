@@ -47,6 +47,7 @@ function inject(markdown, token) {
     '  file: materiales/ut03-mvc.md\n' +
     '  branch: edicion/ana/materiales-ut03-mvc\n' +
     `  sha: ${SHA0}\n` +
+    '  committed_at: 2026-11-20T09:05:00\n' +
     `  token: ${token}\n` +
     '  readonly: false\n' +
     `  return_url: ${MOCK}/my/courses.php\n` +
@@ -228,6 +229,8 @@ try {
     'barra con Guardar y Publicar',
     await evaluate(cdp, `[...document.querySelectorAll('button')].some(b => b.textContent.includes('Guardar')) && !!document.querySelector('#publish-format')`),
   )
+  const versionText = await evaluate(cdp, `document.querySelector('.topbar__branch').textContent.replace(/\\s+/g, ' ').trim()`)
+  check('barra: rama y fecha de la versión, sin SHA', versionText.includes('20/11/2026, 09:05') && !versionText.includes(SHA0.slice(0, 8)), versionText)
 
   // 1) Guardar sin cambios: no hay petición.
   await ctrlS(cdp)

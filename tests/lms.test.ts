@@ -3,9 +3,10 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { LmsConfig } from '../src/liascript'
+import { splitDocument, type LmsConfig } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
 import { materialUrl } from '../src/lms/openUrl'
+import { formatCommitDate } from '../src/lms/version'
 
 const CFG: LmsConfig = {
   save_endpoint: 'https://moodle/local/liamateriales/save.php',
@@ -123,5 +124,31 @@ describe('URL de apertura', () => {
     ['?debug', null],
   ])('%s', (search, expected) => {
     expect(materialUrl(search)).toBe(expected)
+  })
+})
+
+describe('fecha de la versión', () => {
+  it('lee committed_at del bloque liascript-lms (opcional)', () => {
+    const block = (extra: string) =>
+      `<!--\ntitle: X\n\nliascript-lms:\n  save_endpoint: https://m/save.php\n  file: a.md\n  branch: b\n  sha: ${'a'.repeat(40)}\n  token: t\n${extra}-->\n\n# A\n`
+    expect(splitDocument(block('  committed_at: 2026-11-23T10:42:00+01:00\n')).lms?.committed_at).toBe('2026-11-23T10:42:00+01:00')
+    expect(splitDocument(block('')).lms?.committed_at).toBeUndefined()
+  })
+
+  it('formatea fecha y hora en español y descarta valores no válidos', () => {
+    expect(formatCommitDate('2026-11-23T10:42:00')).toBe('23/11/2026, 10:42')
+    expect(formatCommitDate(undefined)).toBeUndefined()
+    expect(formatCommitDate('ayer')).toBeUndefined()
+  })
+
+  it('tras guardar usa la fecha del servidor o, si no la da, la actual', async () => {
+    const withDate = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'b'.repeat(40), committed_at: '2026-11-23T11:00:00Z' }))
+    await withDate.save('# A\n')
+    expect(withDate.config.committed_at).toBe('2026-11-23T11:00:00Z')
+
+    const before = Date.now()
+    const without = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'c'.repeat(40) }))
+    await without.save('# A\n')
+    expect(Date.parse(without.config.committed_at!)).toBeGreaterThanOrEqual(before - 1000)
   })
 })

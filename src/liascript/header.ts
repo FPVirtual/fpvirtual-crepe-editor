@@ -22,6 +22,8 @@ export interface LmsConfig {
   branch: string
   /** SHA del que parte la sesión (optimistic locking). */
   sha: string
+  /** Fecha del commit `sha` (ISO 8601). Opcional: el plugin puede no enviarla. */
+  committed_at?: string
   token: string
   readonly: boolean
   return_url?: string
@@ -105,6 +107,7 @@ function extractLms(header: string): { header: string; lms?: LmsConfig; hadBlock
       file: raw.file,
       branch: raw.branch,
       sha: raw.sha,
+      committed_at: raw.committed_at || undefined,
       token: raw.token,
       readonly: raw.readonly === 'true',
       return_url: raw.return_url || undefined,
