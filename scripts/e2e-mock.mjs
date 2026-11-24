@@ -19,7 +19,13 @@ const MOCK = `http://127.0.0.1:${MOCK_PORT}`
 const EDITOR = `http://127.0.0.1:${EDITOR_PORT}`
 const SHA0 = 'a'.repeat(40)
 
-const material = readFileSync(join(ROOT, 'fixtures/real/ut03-mvc.md'), 'utf8')
+// Material real más imágenes relativas (docs/imagenes): una de bloque y otra en línea.
+const material =
+  readFileSync(join(ROOT, 'fixtures/real/ut03-mvc.md'), 'utf8') +
+  '\n## Imágenes\n\n![Esquema del patrón](img/esquema.png)\n\nUna foto ![foto](./img/foto.png) en línea.\n'
+// PNG de 1×1 que sirve el asset.php simulado.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
+const assetRequests = []
 const saves = []
 const publishes = []
 let shaCounter = 0
@@ -47,6 +53,7 @@ function inject(markdown, token) {
     'liascript-lms:\n' +
     `  save_endpoint: ${MOCK}/save.php\n` +
     `  token_refresh_endpoint: ${MOCK}/token.php\n` +
+    `  asset_endpoint: ${MOCK}/asset.php\n` +
     '  file: materiales/ut03-mvc.md\n' +
     '  branch: edicion/ana/materiales-ut03-mvc\n' +
     `  sha: ${SHA0}\n` +
@@ -85,6 +92,17 @@ const mock = createServer((req, res) => {
       return
     }
     const data = body ? JSON.parse(body) : {}
+    if (url.pathname === '/asset.php') {
+      assetRequests.push({ method: req.method, url: req.url, body: data })
+      if (req.method !== 'POST' || !data.token || !['img/esquema.png', 'img/foto.png'].includes(data.path)) {
+        json(res, 404, { status: 'error' })
+        return
+      }
+      cors(res)
+      res.writeHead(200, { 'Content-Type': 'image/png' })
+      res.end(PNG)
+      return
+    }
     if (url.pathname === '/save.php') {
       saves.push(data)
       if (data.content.includes('LIMITE')) {
@@ -252,6 +270,12 @@ try {
   const versionText = await evaluate(cdp, `document.querySelector('.topbar__branch').textContent.replace(/\\s+/g, ' ').trim()`)
   check('barra: rama y fecha de la versión, sin SHA', versionText.includes('20/11/2026, 09:05') && !versionText.includes(SHA0.slice(0, 8)), versionText)
 
+  // Imágenes relativas: se piden por POST con el token y se pintan como blob:.
+  await waitFor(cdp, `document.querySelectorAll('.ProseMirror img[src^="blob:"]').length >= 2`, 'imágenes relativas cargadas')
+  check('imágenes: bloque y en línea pintadas como blob:', await evaluate(cdp, `[...document.querySelectorAll('.ProseMirror img[src^="blob:"]')].every(i => i.complete && i.naturalWidth === 1)`))
+  check('imágenes: POST con el token en el cuerpo, ninguna URL con token', assetRequests.length >= 2 && assetRequests.every((r) => r.method === 'POST' && r.body.token === 'tok1' && !r.url.includes('token')))
+  check('imágenes: una petición por imagen', new Set(assetRequests.map((r) => r.body.path)).size === assetRequests.length, assetRequests.map((r) => r.body.path).join(', '))
+
   // 1) Guardar sin cambios: no hay petición.
   await ctrlS(cdp)
   await sleep(300)
@@ -267,7 +291,8 @@ try {
   check('guardado: contenido sin el bloque liascript-lms', first && !first.content.includes('liascript-lms'))
   check('guardado: cabecera original intacta', first?.content.startsWith(material.slice(0, material.indexOf('-->') + 3)))
   const changed = first ? first.content.split('\n').filter((l, i) => l !== material.split('\n')[i]).length : -1
-  check('guardado: solo cambia la línea editada', changed === 1, `${changed} línea(s)`)
+  const diffLines = first ? first.content.split('\n').filter((l, i) => l !== material.split('\n')[i]) : []
+  check('guardado: solo cambia la línea editada', changed === 1, `${changed} línea(s): ${JSON.stringify(diffLines).slice(0, 400)}`)
 
   // 3) Conflicto y forzar.
   await typeAtEndOfFirstParagraph(cdp, ' CONFLICTO')

@@ -18,7 +18,8 @@ import {
   type BlockSlice,
   type SplitDocument,
 } from '../liascript'
-import { crepeFeatureConfigs } from './crepeConfig'
+import { crepeFeatureConfigs, type ImageHooks } from './crepeConfig'
+import { liaImageBlockSchema } from './imageBlock'
 import { extractOutline, type OutlineItem } from './outline'
 
 export interface LiaEditor {
@@ -46,6 +47,8 @@ export interface LiaEditor {
 export interface LiaEditorOptions {
   /** Se llama cuando cambia el documento (sin serializar: es barato). */
   onChange?: () => void
+  /** Imágenes relativas del material (docs/imagenes). */
+  images?: ImageHooks
 }
 
 export async function createLiaEditor(
@@ -64,9 +67,11 @@ export async function createLiaEditor(
     },
     // Textos en español, resaltado con tokens y grupo LiaScript en el menú «/»
     // (con las macros que define la cabecera del material).
-    featureConfigs: crepeFeatureConfigs(extractHeaderMacros(doc.header)),
+    featureConfigs: crepeFeatureConfigs(extractHeaderMacros(doc.header), options.images),
   })
   crepe.editor.use(liascript)
+  // Bloque de imagen que conserva el texto alternativo (Crepe lo usa para la proporción).
+  crepe.editor.use(liaImageBlockSchema)
   if (options.onChange) {
     const onChange = options.onChange
     crepe.on((listener) => {

@@ -18,6 +18,8 @@ export interface LmsConfig {
   publish_endpoint?: string
   /** POST `{file, branch, token}` → `{token}` (renovación sin guardar). */
   token_refresh_endpoint?: string
+  /** POST `{token, path}` → bytes de una imagen del material (docs/imagenes). */
+  asset_endpoint?: string
   file: string
   branch: string
   /** SHA del que parte la sesión (optimistic locking). */
@@ -104,6 +106,7 @@ function extractLms(header: string): { header: string; lms?: LmsConfig; hadBlock
       save_endpoint: raw.save_endpoint,
       publish_endpoint: raw.publish_endpoint || undefined,
       token_refresh_endpoint: raw.token_refresh_endpoint || undefined,
+      asset_endpoint: raw.asset_endpoint || undefined,
       file: raw.file,
       branch: raw.branch,
       sha: raw.sha,

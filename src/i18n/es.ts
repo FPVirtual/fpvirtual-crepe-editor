@@ -105,7 +105,7 @@ export const es: Record<string, string> = {
   'crepe.link.placeholder': 'Pega o escribe un enlace…',
   'crepe.image.upload': 'Subir',
   'crepe.image.urlPlaceholder': 'Pega la URL de la imagen…',
-  'crepe.image.caption': 'Pie de imagen…',
+  'crepe.image.caption': 'Texto alternativo: describe la imagen…',
   'crepe.code.search': 'Buscar lenguaje',
   'crepe.code.noResult': 'Sin resultados',
   'crepe.code.copy': 'Copiar',

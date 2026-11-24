@@ -14,8 +14,9 @@ import { createLiaEditor, type LiaEditor } from './editor/createEditor'
 import { useOutline } from './editor/useOutline'
 import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
-import { extractHeaderMacros, type LmsConfig } from './liascript'
+import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
+import { ImageStore } from './lms/images'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { openRequest, type OpenRequest } from './lms/openUrl'
 import { formatCommitDate } from './lms/version'
@@ -53,6 +54,8 @@ const status = ref<'loading' | 'ready' | 'nourl' | 'error'>('loading')
 const errorMessage = ref('')
 
 let bridge: LmsBridge | null = null
+/** Imágenes relativas del material abierto (docs/imagenes). */
+let images: ImageStore | null = null
 /** Copia reactiva de la configuración del puente (SHA y token cambian al guardar). */
 const lms = ref<LmsConfig | null>(null)
 
@@ -130,7 +133,10 @@ async function fetchMarkdown(request: OpenRequest): Promise<string> {
 async function mountEditor(markdown: string): Promise<LiaEditor> {
   await editor.value?.destroy()
   root.value!.innerHTML = ''
-  const instance = await createLiaEditor(root.value!, markdown, { onChange })
+  const instance = await createLiaEditor(root.value!, markdown, {
+    onChange,
+    images: images ? { display: (url) => images!.display(url) } : undefined,
+  })
   editor.value = instance
   return instance
 }
@@ -139,9 +145,13 @@ async function openFromServer(request: OpenRequest): Promise<void> {
   const markdown = await fetchMarkdown(request)
   status.value = 'ready'
   await Promise.resolve()
-  const instance = await mountEditor(markdown)
-  const cfg = instance.doc.lms
+  // El puente va antes que el editor: Crepe pide las imágenes al montarse.
+  const cfg = splitDocument(markdown).lms
   bridge = cfg ? new LmsBridge(cfg, request) : null
+  images?.dispose()
+  const b = bridge
+  images = new ImageStore(b ? (path) => b.fetchAsset(path) : null)
+  const instance = await mountEditor(markdown)
   syncLms()
   lastSaved.value = instance.getMarkdown()
   saveState.value = 'idle'

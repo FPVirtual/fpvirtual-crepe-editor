@@ -34,7 +34,16 @@ export function insertLiaSource(ctx: Ctx, source: string): void {
   if (content.firstChild?.type.name === LIA_BLOCK) cardViewAt(view, at)?.startEdit()
 }
 
-export function crepeFeatureConfigs(macros: HeaderMacro[] = []): NonNullable<CrepeConfig['featureConfigs']> {
+/** Ganchos de imágenes del editor (docs/imagenes). */
+export interface ImageHooks {
+  /** URL que se pinta para la del Markdown (rutas relativas → `blob:`). */
+  display: (url: string) => string | Promise<string>
+}
+
+export function crepeFeatureConfigs(
+  macros: HeaderMacro[] = [],
+  images?: ImageHooks,
+): NonNullable<CrepeConfig['featureConfigs']> {
   return {
     [Crepe.Feature.CodeMirror]: {
       theme: codeHighlight,
@@ -63,6 +72,7 @@ export function crepeFeatureConfigs(macros: HeaderMacro[] = []): NonNullable<Cre
       blockUploadButton: t('crepe.image.upload'),
       blockUploadPlaceholderText: t('crepe.image.urlPlaceholder'),
       blockCaptionPlaceholderText: t('crepe.image.caption'),
+      ...(images ? { proxyDomURL: images.display } : {}),
     },
     [Crepe.Feature.BlockEdit]: {
       textGroup: {

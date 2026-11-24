@@ -122,6 +122,27 @@ export class LmsBridge {
     return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
   }
 
+  /**
+   * Bytes de una imagen del material (ruta relativa a su `.md`), con el token
+   * en el cuerpo. `null` si no hay endpoint, no existe o falla.
+   */
+  async fetchAsset(path: string): Promise<Blob | null> {
+    if (!this.#cfg.asset_endpoint) return null
+    try {
+      const response = await this.#fetch(this.#cfg.asset_endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: this.#cfg.token, path }),
+        credentials: 'omit',
+      })
+      const type = response.headers.get('Content-Type') ?? ''
+      if (!response.ok || !type.startsWith('image/')) return null
+      return await response.blob()
+    } catch {
+      return null
+    }
+  }
+
   /** Renueva el token sin guardar; `false` si no hay endpoint o falla. */
   async refreshToken(): Promise<boolean> {
     if (!this.#cfg.token_refresh_endpoint || this.#cfg.readonly) return false
