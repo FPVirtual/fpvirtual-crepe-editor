@@ -251,11 +251,12 @@ a { color: var(--md-color-primary-text); }
 }
 
 /*
- * Imágenes: sin endpoint de subida en el contrato con Moodle, el «Subir» de
- * Crepe guardaría una URL `blob:` local que se rompe al cerrar la pestaña.
- * Se oculta: las imágenes se insertan pegando su URL.
+ * Imágenes: el «Subir» de Crepe solo se muestra si el plugin admite imágenes
+ * (asset_endpoint) y se puede guardar; la imagen queda pendiente y viaja con
+ * el guardado. Sin eso, las imágenes se insertan pegando su URL.
  */
-.milkdown .link-importer .placeholder .uploader { display: none !important; }
+/* Subida de imágenes: solo si el material admite subir (docs/imagenes). */
+.editor:not(.editor--uploads) .milkdown .link-importer .placeholder .uploader { display: none !important; }
 
 /* Tarjetas de bloques LiaScript protegidos (R4). */
 .lia-card {

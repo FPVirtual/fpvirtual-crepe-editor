@@ -178,6 +178,26 @@ su ajuste `legacy_open_url`, pensado para el fork de LiveEditor):
 - `?url=<content.php…>`, o
 - `?/open/file/<content.php…>` (y `?%2Fopen%2Ffile%2F…`).
 
+## Imágenes
+
+Las imágenes viven en el repositorio de contenidos, junto al material
+(`img/…`), con rutas relativas en el Markdown, como en LiaScript.
+
+- **Ver**: las rutas relativas se piden con `POST asset.php {token, path}`
+  (`asset_endpoint` del bloque LMS) y se pintan como `blob:`
+  (`src/lms/images.ts`, `proxyDomURL` de Crepe). Las absolutas, tal cual.
+- **Subir** (botón «Subir» del bloque de imagen, solo si se puede guardar y
+  el plugin sirve imágenes): la imagen se reduce a 1920 px como máximo y se
+  recodifica a JPEG, o a PNG si tiene transparencia (sin EXIF; los GIF no se
+  tocan). Se guarda como `img/<nombre>-<hash8>.<ext>` y queda **pendiente**
+  (también en el borrador local) hasta el próximo guardado, que la envía en
+  el mismo commit que el Markdown. Solo viajan las que el documento sigue
+  usando (`src/lms/imageUpload.ts`).
+- **Texto alternativo**: el pie que se edita bajo la imagen es su texto
+  alternativo (`![texto](ruta)`). Crepe usaba ese campo para la proporción;
+  `src/editor/imageBlock.ts` lo corrige.
+- **CSP**: añade `blob:` a `img-src`.
+
 ## Despliegue
 
 `npm run build` genera `dist/`, una app estática con rutas relativas. Hay
@@ -189,7 +209,7 @@ server {
     listen 443 ssl http2;
     server_name editor.example.org;
     root /srv/fpvirtual-crepe-editor/dist;
-    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://moodle.example.org; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://moodle.example.org; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header X-Content-Type-Options "nosniff" always;
     location / { try_files $uri /index.html; }

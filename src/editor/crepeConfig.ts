@@ -38,6 +38,8 @@ export function insertLiaSource(ctx: Ctx, source: string): void {
 export interface ImageHooks {
   /** URL que se pinta para la del Markdown (rutas relativas → `blob:`). */
   display: (url: string) => string | Promise<string>
+  /** Subida: devuelve la ruta relativa que se escribe en el Markdown. */
+  upload?: (file: File) => Promise<string>
 }
 
 export function crepeFeatureConfigs(
@@ -73,6 +75,8 @@ export function crepeFeatureConfigs(
       blockUploadPlaceholderText: t('crepe.image.urlPlaceholder'),
       blockCaptionPlaceholderText: t('crepe.image.caption'),
       ...(images ? { proxyDomURL: images.display } : {}),
+      // Sin subida propia, Crepe guardaría una URL blob: que se pierde al cerrar.
+      onUpload: images?.upload ?? (() => Promise.reject(new Error('subida no disponible'))),
     },
     [Crepe.Feature.BlockEdit]: {
       textGroup: {

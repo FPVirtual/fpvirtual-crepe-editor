@@ -92,3 +92,63 @@ describe('bloque liascript-lms', () => {
     expect(splitDocument(md).lms?.asset_endpoint).toBe('https://m/asset.php')
   })
 })
+
+describe('subida (fase 2)', () => {
+  it('slug del nombre', async () => {
+    const { slugify } = await import('../src/lms/imageUpload')
+    expect(slugify('Esquema MVC (versión 2).PNG')).toBe('esquema-mvc-version-2')
+    expect(slugify('ñandú.jpg')).toBe('nandu')
+    expect(slugify('***.png')).toBe('imagen')
+    expect(slugify('a'.repeat(60) + '.png')).toHaveLength(40)
+  })
+
+  it('tamaño máximo sin ampliar', async () => {
+    const { fitSize } = await import('../src/lms/imageUpload')
+    expect(fitSize(4000, 3000)).toEqual({ width: 1920, height: 1440 })
+    expect(fitSize(1000, 3000)).toEqual({ width: 640, height: 1920 })
+    expect(fitSize(800, 600)).toEqual({ width: 800, height: 600 })
+  })
+
+  it('rechaza SVG y GIF de más de 2 MB; un GIF válido pasa tal cual con hash', async () => {
+    const { prepareUpload, UploadError, MAX_BYTES } = await import('../src/lms/imageUpload')
+    await expect(prepareUpload(new File(['<svg/>'], 'a.svg', { type: 'image/svg+xml' }))).rejects.toBeInstanceOf(UploadError)
+    const big = new File([new Uint8Array(MAX_BYTES + 1)], 'g.gif', { type: 'image/gif' })
+    await expect(prepareUpload(big)).rejects.toMatchObject({ reason: 'size' })
+    const gif = new File([new Uint8Array([71, 73, 70, 56, 57, 97])], 'Animación.gif', { type: 'image/gif' })
+    const prepared = await prepareUpload(gif)
+    expect(prepared.path).toMatch(/^img\/animacion-[0-9a-f]{8}\.gif$/)
+    expect(prepared.blob).toBe(gif)
+  })
+
+  it('base64', async () => {
+    const { toBase64 } = await import('../src/lms/imageUpload')
+    expect(await toBase64(new Blob([new Uint8Array([137, 80, 78, 71])]))).toBe('iVBORw==')
+  })
+
+  it('pendientes: se ven, solo viajan las referenciadas y dejan de estarlo al guardar', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:https://editor/p')
+    const store = new ImageStore(async () => null)
+    const blob = new Blob(['x'], { type: 'image/png' })
+    store.addPending({ path: 'img/a-11111111.png', blob })
+    store.addPending({ path: 'img/b-22222222.png', blob })
+    expect(await store.display('img/a-11111111.png')).toBe('blob:https://editor/p')
+    const md = '# T\n\n![A](img/a-11111111.png)\n'
+    expect(store.pendingFor(md).map((p) => p.path)).toEqual(['img/a-11111111.png'])
+    expect(store.pending()).toHaveLength(2)
+    store.markSaved(['img/a-11111111.png'])
+    expect(store.pendingFor(md)).toEqual([])
+  })
+
+  it('el guardado envía las imágenes solo si hay', async () => {
+    const calls: { url: string; body: Record<string, unknown> }[] = []
+    const fake = (async (url: string, init: RequestInit) => {
+      calls.push({ url, body: JSON.parse(String(init.body)) })
+      return new Response(JSON.stringify({ status: 'ok', new_sha: 'b'.repeat(40), token: 't2' }), { status: 200 })
+    }) as unknown as typeof fetch
+    const bridge = new LmsBridge({ ...CFG }, null, fake)
+    await bridge.save('# A\n')
+    await bridge.save('# B\n', undefined, [{ path: 'img/a.png', content_base64: 'iVBORw==' }])
+    expect(calls[0].body).not.toHaveProperty('images')
+    expect(calls[1].body.images).toEqual([{ path: 'img/a.png', content_base64: 'iVBORw==' }])
+  })
+})

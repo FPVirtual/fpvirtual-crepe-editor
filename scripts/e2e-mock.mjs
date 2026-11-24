@@ -6,10 +6,11 @@
 // Uso: npm run build && node scripts/e2e-mock.mjs
 // Requiere google-chrome. Deja una captura en reports/e2e.png.
 
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join, extname } from 'node:path'
+import { tmpdir } from 'node:os'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const EDITOR_PORT = 4191
@@ -22,7 +23,7 @@ const SHA0 = 'a'.repeat(40)
 // Material real más imágenes relativas (docs/imagenes): una de bloque y otra en línea.
 const material =
   readFileSync(join(ROOT, 'fixtures/real/ut03-mvc.md'), 'utf8') +
-  '\n## Imágenes\n\n![Esquema del patrón](img/esquema.png)\n\nUna foto ![foto](./img/foto.png) en línea.\n'
+  '\n## Imágenes\n\n![Esquema del patrón](img/esquema.png)\n\nUna foto ![foto](./img/foto.png) en línea.\n\n![]()\n'
 // PNG de 1×1 que sirve el asset.php simulado.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
 const assetRequests = []
@@ -112,7 +113,8 @@ const mock = createServer((req, res) => {
         res.end(JSON.stringify({ status: 'rate_limited', retry_after: 42, message: 'Demasiadas peticiones' }))
         return
       }
-      if (data.content.includes('CONFLICTO') && data.original_sha !== 'c'.repeat(40)) {
+      // Conflicto simulado solo en el primer guardado con «CONFLICTO» (SHA 1111…).
+      if (data.content.includes('CONFLICTO') && data.original_sha === '1'.repeat(40)) {
         json(res, 409, {
           status: 'conflict',
           resolution_branch: 'resolucion/ana/20261119-120000-materiales-ut03-mvc',
@@ -313,8 +315,31 @@ try {
   check('publicar: {file, sha, format, token} con el SHA guardado', publishes[0]?.format === 'epub' && publishes[0]?.sha === '2'.repeat(40) && publishes[0]?.token === 'tok3')
   check('publicar: enlace al módulo', await evaluate(cdp, `!!document.querySelector('a[href*="mod/resource/view.php"]')`))
 
-  // 5) Límite de uso: 429 al guardar → aviso y el texto sigue en el editor.
+  // 5) Subir una imagen (fase 2): bloque de imagen vacío → fichero real de 2600 px.
+  const upload = join(tmpdir(), 'Foto de prueba.png')
+  execFileSync('convert', ['-size', '2600x1200', 'plasma:fractal', upload])
+  const doc = await cdp.send('DOM.getDocument', { depth: -1, pierce: true })
+  const input = await cdp.send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.ProseMirror input[type="file"]' })
+  await cdp.send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: [upload] })
+  await waitFor(cdp, `[...document.querySelectorAll('.ProseMirror img[src^="blob:"]')].some(i => i.complete && i.naturalWidth === 1920)`, 'imagen subida y reducida')
+  check('subida: se ve reducida a 1920 px', true)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado con imagen')
+  const withImage = saves[saves.length - 1]
+  const sent = withImage?.images ?? []
+  check('subida: el guardado lleva la imagen', sent.length === 1 && /^img\/foto-de-prueba-[0-9a-f]{8}\.jpg$/.test(sent[0].path), sent.map((i) => i.path).join(', '))
+  check('subida: JPEG recodificado (sin EXIF) y referenciado en el Markdown', sent.length === 1 && Buffer.from(sent[0].content_base64, 'base64').subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) && withImage.content.includes(`](${sent[0].path})`))
+  await typeAtEndOfFirstParagraph(cdp, ' Otra edición.')
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado sin imágenes')
+  await sleep(300)
+  check('subida: el siguiente guardado ya no la reenvía', !saves[saves.length - 1].images)
+
+  // 6) Límite de uso: 429 al guardar → aviso y el texto sigue en el editor.
   await typeAtEndOfFirstParagraph(cdp, ' LIMITE')
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
   await ctrlS(cdp)
   await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Demasiadas peticiones')`, 'aviso de 429')
   check('429: aviso «Demasiadas peticiones» con la espera', await evaluate(cdp, `document.querySelector('.topbar__status').textContent.includes('42 segundos')`))

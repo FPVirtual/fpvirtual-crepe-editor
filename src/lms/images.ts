@@ -19,9 +19,21 @@ export function normalizePath(url: string): string {
   return url.split('#')[0].split('?')[0].replace(/^(\.\/)+/, '')
 }
 
+/** Imagen subida que aún no está en Git (viaja con el próximo guardado). */
+export interface PendingImage {
+  path: string
+  blob: Blob
+}
+
+/** ¿El Markdown referencia la ruta (`](img/x.png` o `](./img/x.png`)? */
+export function referenced(markdown: string, path: string): boolean {
+  return markdown.includes(`](${path}`) || markdown.includes(`](./${path}`)
+}
+
 export class ImageStore {
   readonly #fetchAsset: FetchAsset | null
   readonly #cache = new Map<string, Promise<string>>()
+  readonly #pending = new Map<string, Blob>()
 
   constructor(fetchAsset: FetchAsset | null) {
     this.#fetchAsset = fetchAsset
@@ -29,10 +41,11 @@ export class ImageStore {
 
   /** URL para pintar una imagen del Markdown. */
   display(url: string): string | Promise<string> {
-    if (!url || isExternal(url) || !this.#fetchAsset) return url
+    if (!url || isExternal(url)) return url
     const key = normalizePath(url)
     let entry = this.#cache.get(key)
     if (!entry) {
+      if (!this.#fetchAsset) return url
       const fetchAsset = this.#fetchAsset
       entry = fetchAsset(key).then((blob) => (blob ? URL.createObjectURL(blob) : url))
       this.#cache.set(key, entry)
@@ -44,6 +57,28 @@ export class ImageStore {
     return entry
   }
 
+  /** Añade una imagen subida: se ve ya y viajará con el próximo guardado. */
+  addPending(image: PendingImage): void {
+    const key = normalizePath(image.path)
+    this.#pending.set(key, image.blob)
+    this.#cache.set(key, Promise.resolve(URL.createObjectURL(image.blob)))
+  }
+
+  /** Imágenes pendientes que el Markdown sigue usando (las quitadas no se suben). */
+  pendingFor(markdown: string): PendingImage[] {
+    return [...this.#pending].filter(([path]) => referenced(markdown, path)).map(([path, blob]) => ({ path, blob }))
+  }
+
+  /** Todas las pendientes (para el borrador local). */
+  pending(): PendingImage[] {
+    return [...this.#pending].map(([path, blob]) => ({ path, blob }))
+  }
+
+  /** Tras guardar: ya están en Git; dejan de estar pendientes (siguen en caché). */
+  markSaved(paths: string[]): void {
+    for (const path of paths) this.#pending.delete(normalizePath(path))
+  }
+
   /** Libera las URL `blob:` (al cambiar de material). */
   dispose(): void {
     for (const entry of this.#cache.values()) {
@@ -52,5 +87,6 @@ export class ImageStore {
       })
     }
     this.#cache.clear()
+    this.#pending.clear()
   }
 }

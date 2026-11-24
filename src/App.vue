@@ -17,6 +17,7 @@ import { t } from './i18n'
 import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { ImageStore } from './lms/images'
+import { prepareUpload, toBase64, UploadError } from './lms/imageUpload'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { openRequest, type OpenRequest } from './lms/openUrl'
 import { formatCommitDate } from './lms/version'
@@ -84,6 +85,9 @@ let draftTimer: ReturnType<typeof setTimeout> | undefined
 let changeTimer: ReturnType<typeof setTimeout> | undefined
 
 const canSave = computed(() => Boolean(lms.value && !lms.value.readonly && lms.value.token))
+/** Subir imágenes: se puede guardar y el plugin sirve imágenes (docs/imagenes). */
+const canUpload = computed(() => canSave.value && Boolean(lms.value?.asset_endpoint))
+const imageMessage = ref('')
 const canPublish = computed(() => canSave.value && Boolean(lms.value?.publish_endpoint))
 const dirty = computed(() => saveState.value === 'dirty')
 const busy = computed(() => saveState.value === 'saving' || publishing.value)
@@ -135,10 +139,25 @@ async function mountEditor(markdown: string): Promise<LiaEditor> {
   root.value!.innerHTML = ''
   const instance = await createLiaEditor(root.value!, markdown, {
     onChange,
-    images: images ? { display: (url) => images!.display(url) } : undefined,
+    images: images ? { display: (url) => images!.display(url), upload: uploadImage } : undefined,
   })
   editor.value = instance
   return instance
+}
+
+/** Subida de una imagen desde Crepe: queda pendiente hasta el próximo guardado. */
+async function uploadImage(file: File): Promise<string> {
+  imageMessage.value = ''
+  if (!images || !canUpload.value) throw new Error('subida no disponible')
+  try {
+    const prepared = await prepareUpload(file)
+    images.addPending(prepared)
+    return prepared.path
+  } catch (error) {
+    const reason = error instanceof UploadError ? error.reason : 'decode'
+    imageMessage.value = t(`image.error.${reason}`)
+    throw error
+  }
 }
 
 async function openFromServer(request: OpenRequest): Promise<void> {
@@ -227,7 +246,13 @@ function checkDirty(): void {
 async function storeDraft(markdown: string): Promise<void> {
   const cfg = lms.value
   if (!cfg || !canSave.value || saveState.value !== 'dirty') return
-  await saveDraft({ key: draftKey(cfg.file, cfg.branch), sha: cfg.sha, markdown, savedAt: Date.now() })
+  await saveDraft({
+    key: draftKey(cfg.file, cfg.branch),
+    sha: cfg.sha,
+    markdown,
+    savedAt: Date.now(),
+    images: images?.pendingFor(markdown) ?? [],
+  })
 }
 
 async function offerDraft(): Promise<void> {
@@ -242,6 +267,7 @@ async function recoverDraft(): Promise<void> {
   const offer = draftOffer.value
   draftOffer.value = null
   if (!offer) return
+  for (const image of offer.draft.images ?? []) images?.addPending(image)
   await mountEditor(offer.draft.markdown)
   saveState.value = 'dirty'
 }
@@ -265,10 +291,16 @@ async function save(baseSha?: string): Promise<void> {
   }
   saveState.value = 'saving'
   invalidErrors.value = []
-  const result = await b.save(markdown, baseSha)
+  // Imágenes subidas que el documento usa: mismo commit que el Markdown.
+  const pending = images?.pendingFor(markdown) ?? []
+  const uploads = await Promise.all(
+    pending.map(async (image) => ({ path: image.path, content_base64: await toBase64(image.blob) })),
+  )
+  const result = await b.save(markdown, baseSha, uploads)
   syncLms()
   switch (result.status) {
     case 'saved':
+      images?.markSaved(pending.map((image) => image.path))
       lastSaved.value = markdown
       saveState.value = 'saved'
       await deleteDraft(draftKey(b.config.file, b.config.branch))
@@ -427,6 +459,8 @@ function toggleDebug(): void {
     </ul>
   </div>
 
+  <div v-if="imageMessage" class="banner banner--error" role="alert">{{ imageMessage }}</div>
+
   <div v-if="publishMessage" class="banner" role="status">
     {{ publishMessage }}
     <a v-if="publishUrl" class="btn" :href="publishUrl" target="_blank" rel="noopener noreferrer">
@@ -448,7 +482,7 @@ function toggleDebug(): void {
     <SidePanel id="outline-panel" side="left" :title="t('outline.title')" :open="outline.open.value" @toggle="outline.toggle">
       <OutlinePanel :items="outline.items.value" :active="outline.active.value" @select="outline.select" />
     </SidePanel>
-    <main ref="root" class="editor" />
+    <main ref="root" class="editor" :class="{ 'editor--uploads': canUpload }" />
     <SidePanel id="lia-panel" side="right" :title="t('lia.panel.title')" :open="liaPanel.open.value" @toggle="liaPanel.toggle">
       <LiaPanel :macros="headerMacros" :can-insert="canInsert" @insert="insertExample" />
     </SidePanel>

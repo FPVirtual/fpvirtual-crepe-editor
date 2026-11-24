@@ -16,6 +16,8 @@ export interface Draft {
   sha: string
   markdown: string
   savedAt: number
+  /** Imágenes subidas aún sin guardar en Git (docs/imagenes). */
+  images?: { path: string; blob: Blob }[]
 }
 
 export const draftKey = (file: string, branch: string): string => `${file}@${branch}`

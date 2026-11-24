@@ -59,14 +59,21 @@ export class LmsBridge {
    * @param content Markdown completo (cabecera sin el bloque LMS + cuerpo)
    * @param baseSha SHA sobre el que se guarda; por defecto el último conocido.
    *   «Forzar mi versión» tras un 409 lo llama con el `current_sha` del conflicto.
+   * @param images imágenes subidas que el documento usa, en base64
    */
-  async save(content: string, baseSha: string = this.#cfg.sha): Promise<SaveResult> {
+  async save(
+    content: string,
+    baseSha: string = this.#cfg.sha,
+    images: { path: string; content_base64: string }[] = [],
+  ): Promise<SaveResult> {
     const response = await this.#post(this.#cfg.save_endpoint, {
       file: this.#cfg.file,
       branch: this.#cfg.branch,
       original_sha: baseSha,
       content,
       token: this.#cfg.token,
+      // Imágenes nuevas: mismo commit que el Markdown (docs/imagenes, fase 2).
+      ...(images.length ? { images } : {}),
     })
     if ('error' in response) return { status: 'error', message: response.error }
     const { status, json } = response
