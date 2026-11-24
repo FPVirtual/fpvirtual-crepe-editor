@@ -18,6 +18,7 @@ import type { Root, RootContent } from 'mdast'
 
 import { t } from '../i18n'
 import { classifyBlock, type LiaKind } from './classify'
+import { parseBox, renderInline } from './box'
 import { summarizeQuiz } from './quiz'
 
 export const LIA_BLOCK = 'lia_block'
@@ -199,18 +200,47 @@ export function fillCard(card: HTMLElement, value: string, kind: LiaKind): HTMLE
   header.className = 'lia-card__header'
   const label = document.createElement('span')
   label.className = 'lia-card__label'
-  label.textContent = t(`lia.kind.${kind}`)
   header.append(label)
   card.append(header)
 
+  // Caja de aviso: como en la web publicada (contenedor hope con título).
+  const box = kind === 'macro' ? parseBox(value) : null
+  if (box) {
+    const title = t(`lia.box.${box.name}`)
+    card.classList.add('lia-card--box', 'hint-container', box.type)
+    card.setAttribute('aria-label', t('lia.box.label', { title }))
+    label.classList.add('hint-container-title')
+    label.textContent = title
+    const text = document.createElement('p')
+    text.className = 'lia-card__box-text'
+    text.append(...renderInline(box.text))
+    card.append(text)
+    return card
+  }
+
+  label.textContent = t(`lia.kind.${kind}`)
   const quiz = kind === 'quiz' ? summarizeQuiz(value) : null
   if (quiz && quiz.options.length > 0) {
+    // Como el quiz de la web publicada: opciones con su marcador, sin interacción.
     const list = document.createElement('ul')
-    list.className = 'lia-card__quiz'
+    list.className = `lia-card__quiz lia-card__quiz--${quiz.type}`
     for (const option of quiz.options) {
       const item = document.createElement('li')
       item.className = option.correct ? 'is-correct' : ''
-      item.textContent = `${option.correct ? '✓' : '○'} ${option.text || t('lia.quiz.noText')}`
+      const marker = document.createElement('span')
+      marker.className = 'lia-card__marker'
+      marker.setAttribute('aria-hidden', 'true')
+      const text = document.createElement('span')
+      text.className = 'lia-card__option'
+      if (option.text) text.append(...renderInline(option.text))
+      else text.textContent = t('lia.quiz.noText')
+      item.append(marker, text)
+      if (option.correct && quiz.type !== 'text') {
+        const correct = document.createElement('span')
+        correct.className = 'lia-card__correct'
+        correct.textContent = t('lia.quiz.correct')
+        item.append(correct)
+      }
       list.append(item)
     }
     card.append(list)

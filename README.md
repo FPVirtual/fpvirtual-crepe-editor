@@ -89,6 +89,24 @@ de la barra guarda la elección; en «automático» se sigue `prefers-contrast` 
 `prefers-color-scheme`. `?theme=<id>` fuerza un tema. Los tests comprueban el
 contraste WCAG de cada tema y que no haya colores literales fuera de la paleta.
 
+### Mismo aspecto que la web publicada
+
+El área de edición se ve como la web estática que publica el engine
+(formato `web`, estética vuepress-theme-hope):
+
+- **Cajas** (`@nota`, `@consejo`, `@aviso`, `@importante`, `@error`, cuando
+  son una línea sola): contenedor de aviso con título e icono, con los
+  colores de estado del tema (`info`, `success`, `warning`, `special`,
+  `danger`). El texto admite negrita, cursiva y código
+  (`src/liascript/box.ts`). Las demás macros siguen como tarjeta de código.
+- **Quizzes**: tarjeta con borde y opciones con su marcador (radio o
+  casilla), la correcta marcada y etiquetada.
+- **Bloques de código**: token `--md-color-code-block-bg` (`#ecf4fa` en
+  claro, `#282c34` en oscuro), distinto del de código en línea.
+
+La web usa estos mismos colores (estados y resaltado `--md-syntax-*`), así
+que el contraste que comprueban los tests vale para las dos.
+
 ### Marca (logo y título)
 
 La barra superior muestra el logo del centro y el título de la app. Se

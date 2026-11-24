@@ -142,4 +142,11 @@ export const es: Record<string, string> = {
 
   'lia.quiz.noText': '(sin texto)',
   'lia.quiz.hints': '{n} pista(s)',
+  'lia.quiz.correct': 'correcta',
+  'lia.box.label': 'Caja «{title}» (macro LiaScript)',
+  'lia.box.nota': 'Nota',
+  'lia.box.consejo': 'Consejo',
+  'lia.box.aviso': 'Aviso',
+  'lia.box.importante': 'Importante',
+  'lia.box.error': 'Error',
 }

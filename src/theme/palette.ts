@@ -64,6 +64,9 @@ export const palette = {
   violet: { 50: '#f3f0ff', 300: '#b9a6ff', 600: '#6a4fc0', 900: '#4a2a9c', dim: '#2a2147' },
   greenDim: '#16332a',
 
+  /** Fondo de los bloques de código (vuepress-theme-hope: claro y One Dark). */
+  codeBlock: { light: '#ecf4fa', dark: '#282c34' },
+
   /** Resaltado de sintaxis (paletas tipo GitHub claro/oscuro y una de contraste alto). */
   syntaxLight: {
     keyword: '#cf222e',
