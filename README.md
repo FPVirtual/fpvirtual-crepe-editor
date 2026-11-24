@@ -189,10 +189,24 @@ server {
     listen 443 ssl http2;
     server_name editor.example.org;
     root /srv/fpvirtual-crepe-editor/dist;
-    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://moodle.example.org; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:" always;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' https://moodle.example.org; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
     location / { try_files $uri /index.html; }
 }
 ```
+
+Cabeceras de protección (LIA-063):
+
+- **`Referrer-Policy: no-referrer`** (también como `<meta name="referrer">`
+  en `index.html`): las imágenes y enlaces externos del material no reciben
+  la URL del editor.
+- **CSP**: solo conecta con el propio editor y con Moodle (`connect-src`:
+  pon ahí el origen real de Moodle); sin plugins, sin `<base>` ajeno y sin
+  poder incrustarse en otra web (`frame-ancestors 'none'`).
+
+Comprobación: `curl -I https://editor.example.org/` muestra las tres
+cabeceras.
 
 ## Licencia
 
