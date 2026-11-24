@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { splitDocument, type LmsConfig } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
-import { materialUrl } from '../src/lms/openUrl'
+import { materialUrl, openCode, openRequest } from '../src/lms/openUrl'
 import { formatCommitDate } from '../src/lms/version'
 
 const CFG: LmsConfig = {
@@ -111,11 +111,20 @@ describe('LmsBridge: token, publicación y recarga', () => {
     expect(bridge.canPublish()).toBe(false)
   })
 
-  it('la URL de recarga lleva el token vigente', async () => {
-    const source = 'https://moodle/local/liamateriales/content.php?file=materiales%2Fut03-mvc.md&branch=b&token=tok1'
+  it('recarga con POST del token vigente, sin token en la URL (código de apertura)', async () => {
+    const source = { url: 'https://moodle/local/liamateriales/content.php', body: { code: 'c0de' } }
     const bridge = new LmsBridge(CFG, source, fakeFetch(200, { new_sha: 'e'.repeat(40), token: 'tok2' }))
     await bridge.save('x')
-    expect(new URL(bridge.reloadUrl()!).searchParams.get('token')).toBe('tok2')
+    expect(bridge.reloadRequest()).toEqual({ url: source.url, body: { token: 'tok2' } })
+  })
+
+  it('formato antiguo: la URL de recarga lleva el token vigente', async () => {
+    const source = { url: 'https://moodle/local/liamateriales/content.php?file=materiales%2Fut03-mvc.md&branch=b&token=tok1' }
+    const bridge = new LmsBridge(CFG, source, fakeFetch(200, { new_sha: 'e'.repeat(40), token: 'tok2' }))
+    await bridge.save('x')
+    const request = bridge.reloadRequest()!
+    expect(request.body).toBeUndefined()
+    expect(new URL(request.url).searchParams.get('token')).toBe('tok2')
   })
 })
 
@@ -129,6 +138,25 @@ describe('URL de apertura', () => {
     ['?debug', null],
   ])('%s', (search, expected) => {
     expect(materialUrl(search)).toBe(expected)
+  })
+})
+
+describe('código de apertura en el fragmento (LIA-062)', () => {
+  const src = 'https://moodle.example/local/liamateriales/content.php'
+  it('canjea el código con POST a content.php', () => {
+    expect(openRequest('', `#open=abc123&src=${encodeURIComponent(src)}`)).toEqual({ url: src, body: { code: 'abc123' } })
+  })
+  it('tiene prioridad sobre el formato antiguo', () => {
+    expect(openRequest(`?url=${encodeURIComponent('http://otro/c.php')}`, `#open=x&src=${encodeURIComponent(src)}`)?.body).toEqual({ code: 'x' })
+  })
+  it('rechaza orígenes que no son http(s) y fragmentos incompletos', () => {
+    expect(openCode(`#open=x&src=${encodeURIComponent('javascript:alert(1)')}`)).toBeNull()
+    expect(openCode('#open=x')).toBeNull()
+    expect(openCode('#src=' + encodeURIComponent(src))).toBeNull()
+    expect(openRequest('', '')).toBeNull()
+  })
+  it('sin fragmento, el formato antiguo', () => {
+    expect(openRequest(`?url=${encodeURIComponent(src)}`, '')).toEqual({ url: src })
   })
 })
 
@@ -147,12 +175,12 @@ describe('fecha de la versión', () => {
   })
 
   it('tras guardar usa la fecha del servidor o, si no la da, la actual', async () => {
-    const withDate = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'b'.repeat(40), committed_at: '2026-11-23T11:00:00Z' }))
+    const withDate = new LmsBridge({ ...CFG }, { url: 'https://m/content.php' }, fakeFetch(200, { status: 'ok', new_sha: 'b'.repeat(40), committed_at: '2026-11-23T11:00:00Z' }))
     await withDate.save('# A\n')
     expect(withDate.config.committed_at).toBe('2026-11-23T11:00:00Z')
 
     const before = Date.now()
-    const without = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'c'.repeat(40) }))
+    const without = new LmsBridge({ ...CFG }, { url: 'https://m/content.php' }, fakeFetch(200, { status: 'ok', new_sha: 'c'.repeat(40) }))
     await without.save('# A\n')
     expect(Date.parse(without.config.committed_at!)).toBeGreaterThanOrEqual(before - 1000)
   })

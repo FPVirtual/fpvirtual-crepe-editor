@@ -17,7 +17,7 @@ import { t } from './i18n'
 import { extractHeaderMacros, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
-import { materialUrl } from './lms/openUrl'
+import { openRequest, type OpenRequest } from './lms/openUrl'
 import { formatCommitDate } from './lms/version'
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'unchanged' | 'error' | 'invalid' | 'auth'
@@ -108,8 +108,18 @@ function syncLms(): void {
 
 // --- carga ---------------------------------------------------------------
 
-async function fetchMarkdown(url: string): Promise<string> {
-  const response = await fetch(url, { credentials: 'omit' })
+async function fetchMarkdown(request: OpenRequest): Promise<string> {
+  const response = await fetch(
+    request.url,
+    request.body
+      ? {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request.body),
+          credentials: 'omit',
+        }
+      : { credentials: 'omit' },
+  )
   if (!response.ok) {
     const json = (await response.json().catch(() => ({}))) as { message?: string }
     throw new Error(json.message ?? `HTTP ${response.status}`)
@@ -125,13 +135,13 @@ async function mountEditor(markdown: string): Promise<LiaEditor> {
   return instance
 }
 
-async function openFromServer(url: string): Promise<void> {
-  const markdown = await fetchMarkdown(url)
+async function openFromServer(request: OpenRequest): Promise<void> {
+  const markdown = await fetchMarkdown(request)
   status.value = 'ready'
   await Promise.resolve()
   const instance = await mountEditor(markdown)
   const cfg = instance.doc.lms
-  bridge = cfg ? new LmsBridge(cfg, url) : null
+  bridge = cfg ? new LmsBridge(cfg, request) : null
   syncLms()
   lastSaved.value = instance.getMarkdown()
   saveState.value = 'idle'
@@ -150,12 +160,15 @@ onMounted(async () => {
       lastSaved.value = (await mountEditor(demo.default)).getMarkdown()
       return
     }
-    const url = materialUrl(location.search)
-    if (!url) {
+    const request = openRequest(location.search, location.hash)
+    // El código de apertura es de un solo uso: fuera de la barra de
+    // direcciones (historial, marcadores, compartir) antes de canjearlo.
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search)
+    if (!request) {
       status.value = 'nourl'
       return
     }
-    await openFromServer(url)
+    await openFromServer(request)
     refreshTimer = setInterval(async () => {
       if (await bridge?.refreshToken()) syncLms()
     }, TOKEN_REFRESH_MS)
@@ -274,13 +287,13 @@ async function forceSave(): Promise<void> {
 }
 
 async function reloadServerVersion(): Promise<void> {
-  const url = bridge?.reloadUrl()
+  const request = bridge?.reloadRequest()
   conflict.value = null
-  if (!url) return
+  if (!request) return
   try {
     const cfg = lms.value
     if (cfg) await deleteDraft(draftKey(cfg.file, cfg.branch))
-    await openFromServer(url)
+    await openFromServer(request)
   } catch (error) {
     saveState.value = 'error'
     saveMessage.value = (error as Error).message

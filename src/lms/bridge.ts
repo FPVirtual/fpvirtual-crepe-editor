@@ -6,6 +6,7 @@
 // (SHA nuevo y token renovado): el token es de un solo uso por guardado.
 
 import type { LmsConfig } from '../liascript'
+import type { OpenRequest } from './openUrl'
 
 export type SaveResult =
   | { status: 'saved'; sha: string }
@@ -26,16 +27,16 @@ type Fetch = typeof fetch
 export class LmsBridge {
   readonly #cfg: LmsConfig
   readonly #fetch: Fetch
-  readonly #sourceUrl: string | null
+  readonly #source: OpenRequest | null
 
   /**
    * @param cfg configuración extraída del bloque `liascript-lms`
-   * @param sourceUrl URL de `content.php` con la que se abrió el material
+   * @param source petición a `content.php` con la que se abrió el material
    * @param fetchImpl `fetch` inyectable (tests)
    */
-  constructor(cfg: LmsConfig, sourceUrl: string | null = null, fetchImpl: Fetch = fetch.bind(globalThis)) {
+  constructor(cfg: LmsConfig, source: OpenRequest | null = null, fetchImpl: Fetch = fetch.bind(globalThis)) {
     this.#cfg = { ...cfg }
-    this.#sourceUrl = sourceUrl
+    this.#source = source
     this.#fetch = fetchImpl
   }
 
@@ -132,14 +133,17 @@ export class LmsBridge {
   }
 
   /**
-   * URL para recargar la versión del servidor: la de apertura con el token
-   * vigente (el de la URL original queda revocado tras guardar o renovar).
+   * Petición para recargar la versión del servidor con el token vigente (el
+   * de la apertura queda revocado tras guardar o renovar). Con el código de
+   * apertura (LIA-062), `POST content.php {token}`: el token nunca va en la
+   * URL. Con el formato antiguo, la URL de apertura con el token nuevo.
    */
-  reloadUrl(): string | null {
-    if (!this.#sourceUrl) return null
-    const url = new URL(this.#sourceUrl)
+  reloadRequest(): OpenRequest | null {
+    if (!this.#source) return null
+    if (this.#source.body) return { url: this.#source.url, body: { token: this.#cfg.token } }
+    const url = new URL(this.#source.url)
     url.searchParams.set('token', this.#cfg.token)
-    return url.toString()
+    return { url: url.toString() }
   }
 
   async #post(

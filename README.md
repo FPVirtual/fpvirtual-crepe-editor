@@ -164,12 +164,19 @@ npm run theme:liascript -- verde ../moodle-liaeditor-git/engine/src/materiales_l
 
 ## Apertura desde Moodle
 
-El editor lee la URL del material de:
+El plugin abre el editor con un **código de apertura** de un solo uso
+(60 s) en el fragmento de la URL: `#open=<código>&src=<content.php>`. El
+fragmento no se envía a ningún servidor; el editor lo borra de la barra de
+direcciones y lo canjea con `POST content.php {code}`, que devuelve el
+material con el token de edición. El token solo vive en la memoria del
+editor: se envía en el cuerpo de las peticiones (guardar, renovar,
+publicar y recargar con `POST content.php {token}`), nunca en una URL.
 
-- `?url=<content.php…>` (contrato del editor), o
-- `?/open/file/<content.php…>` (y `?%2Fopen%2Ffile%2F…`), que es la forma
-  que genera hoy el plugin para el fork. Basta con apuntar el ajuste
-  `liaeditor_url` del plugin a este editor.
+Formatos antiguos, con el token en la URL (solo si el plugin tiene activo
+su ajuste `legacy_open_url`, pensado para el fork de LiveEditor):
+
+- `?url=<content.php…>`, o
+- `?/open/file/<content.php…>` (y `?%2Fopen%2Ffile%2F…`).
 
 ## Despliegue
 

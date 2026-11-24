@@ -23,6 +23,9 @@ const material = readFileSync(join(ROOT, 'fixtures/real/ut03-mvc.md'), 'utf8')
 const saves = []
 const publishes = []
 let shaCounter = 0
+const OPEN_CODE = 'c0de-de-apertura'
+let openCodeUsed = false
+const contentRequests = []
 
 // --- backend simulado --------------------------------------------------------
 
@@ -68,9 +71,17 @@ const mock = createServer((req, res) => {
   req.on('data', (c) => (body += c))
   req.on('end', () => {
     if (url.pathname === '/content.php') {
+      // Código de apertura de un solo uso (LIA-062): POST {code} → token de edición.
+      const request = body ? JSON.parse(body) : {}
+      contentRequests.push({ method: req.method, url: req.url, body: request })
+      if (req.method !== 'POST' || request.code !== OPEN_CODE || openCodeUsed) {
+        json(res, 403, { status: 'error', message: 'token no válido' })
+        return
+      }
+      openCodeUsed = true
       cors(res)
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
-      res.end(inject(material, url.searchParams.get('token')))
+      res.end(inject(material, 'tok1'))
       return
     }
     const data = body ? JSON.parse(body) : {}
@@ -219,12 +230,14 @@ try {
   const cdp = await cdpConnect()
   await cdp.send('Page.enable')
   await cdp.send('Runtime.enable')
-  const content = `${MOCK}/content.php?file=materiales%2Fut03-mvc.md&branch=edicion%2Fana%2Fmateriales-ut03-mvc&token=tok1`
-  // Formato que genera hoy el plugin (ruta del fork, codificada).
-  await cdp.send('Page.navigate', { url: `${EDITOR}/?${encodeURIComponent(`/open/file/${content}`)}` })
+  // Formato del plugin (LIA-062): código de apertura en el fragmento.
+  const src = encodeURIComponent(`${MOCK}/content.php`)
+  await cdp.send('Page.navigate', { url: `${EDITOR}/#open=${OPEN_CODE}&src=${src}` })
 
   await waitFor(cdp, `!!document.querySelector('.ProseMirror .lia-card')`, 'editor cargado con tarjetas LiaScript')
-  check('abre el material desde la URL del plugin', true)
+  check('abre el material canjeando el código de apertura', contentRequests.length === 1 && contentRequests[0].method === 'POST')
+  check('ninguna URL de content.php lleva token', contentRequests.every((r) => !r.url.includes('token')))
+  check('el código desaparece de la barra de direcciones', (await evaluate(cdp, 'location.hash')) === '')
   check(
     'barra con Guardar y Publicar',
     await evaluate(cdp, `[...document.querySelectorAll('button')].some(b => b.textContent.includes('Guardar')) && !!document.querySelector('#publish-format')`),
