@@ -105,6 +105,15 @@ describe('LmsBridge: token, publicación y recarga', () => {
     expect(await bridge.publish('web')).toEqual({ status: 'published', cmid: 8, url: 'u', avisos: ['12 · sintaxis · @mermaid'] })
   })
 
+  it('429: avisa de esperar y no cambia SHA ni token', async () => {
+    const bridge = new LmsBridge({ ...CFG }, null, fakeFetch(429, { status: 'rate_limited', retry_after: 42 }))
+    const result = await bridge.save('# A\n')
+    expect(result).toEqual({ status: 'error', message: expect.stringContaining('42 segundos') })
+    expect(bridge.config.sha).toBe(CFG.sha)
+    expect(bridge.config.token).toBe(CFG.token)
+    expect(await bridge.publish('web')).toEqual({ status: 'error', message: expect.stringContaining('42 segundos') })
+  })
+
   it('readonly: no guarda ni publica', () => {
     const bridge = new LmsBridge({ ...CFG, readonly: true })
     expect(bridge.canSave()).toBe(false)

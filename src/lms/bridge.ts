@@ -6,6 +6,7 @@
 // (SHA nuevo y token renovado): el token es de un solo uso por guardado.
 
 import type { LmsConfig } from '../liascript'
+import { t } from '../i18n'
 import type { OpenRequest } from './openUrl'
 
 export type SaveResult =
@@ -95,6 +96,7 @@ export class LmsBridge {
         })),
       }
     }
+    if (status === 429) return { status: 'error', message: rateLimited(json) }
     if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }
     return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
   }
@@ -115,6 +117,7 @@ export class LmsBridge {
       const avisos = Array.isArray(json.avisos) ? json.avisos.map(String) : []
       return { status: 'published', cmid: typeof json.cmid === 'number' ? json.cmid : undefined, url: str(json.url), avisos }
     }
+    if (status === 429) return { status: 'error', message: rateLimited(json) }
     if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }
     return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
   }
@@ -163,6 +166,15 @@ export class LmsBridge {
       return { error: error instanceof Error ? error.message : String(error) }
     }
   }
+}
+
+/**
+ * Mensaje de un 429 del plugin (límites de uso, LIA-064): el del servidor
+ * o uno propio con los segundos de espera. El documento no se toca.
+ */
+function rateLimited(json: Record<string, unknown>): string {
+  const seconds = typeof json.retry_after === 'number' ? json.retry_after : 30
+  return t('lms.rateLimited', { s: seconds })
 }
 
 function str(value: unknown): string | undefined {

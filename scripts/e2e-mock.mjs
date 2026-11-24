@@ -87,6 +87,13 @@ const mock = createServer((req, res) => {
     const data = body ? JSON.parse(body) : {}
     if (url.pathname === '/save.php') {
       saves.push(data)
+      if (data.content.includes('LIMITE')) {
+        // Límite de uso del plugin (LIA-064).
+        cors(res)
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '42' })
+        res.end(JSON.stringify({ status: 'rate_limited', retry_after: 42, message: 'Demasiadas peticiones' }))
+        return
+      }
       if (data.content.includes('CONFLICTO') && data.original_sha !== 'c'.repeat(40)) {
         json(res, 409, {
           status: 'conflict',
@@ -280,6 +287,13 @@ try {
   await waitFor(cdp, `document.body.textContent.includes('Publicado en el curso')`, 'publicación')
   check('publicar: {file, sha, format, token} con el SHA guardado', publishes[0]?.format === 'epub' && publishes[0]?.sha === '2'.repeat(40) && publishes[0]?.token === 'tok3')
   check('publicar: enlace al módulo', await evaluate(cdp, `!!document.querySelector('a[href*="mod/resource/view.php"]')`))
+
+  // 5) Límite de uso: 429 al guardar → aviso y el texto sigue en el editor.
+  await typeAtEndOfFirstParagraph(cdp, ' LIMITE')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Demasiadas peticiones')`, 'aviso de 429')
+  check('429: aviso «Demasiadas peticiones» con la espera', await evaluate(cdp, `document.querySelector('.topbar__status').textContent.includes('42 segundos')`))
+  check('429: no se pierde el trabajo', await evaluate(cdp, `document.querySelector('.ProseMirror').textContent.includes('LIMITE')`))
 
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' })
   mkdirSync(join(ROOT, 'reports'), { recursive: true })

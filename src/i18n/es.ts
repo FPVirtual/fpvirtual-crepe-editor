@@ -50,6 +50,7 @@ export const es: Record<string, string> = {
   'publish.done': 'Publicado en el curso.',
   'publish.open': 'Ver en el curso',
   'publish.error': 'No se pudo publicar: {message}',
+  'lms.rateLimited': 'Demasiadas peticiones: espera {s} segundos y vuelve a intentarlo. Tus cambios siguen aquí.',
 
   'draft.found': 'Hay un borrador sin guardar de este material ({date}).',
   'draft.recover': 'Recuperar borrador',
