@@ -16,7 +16,7 @@ import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
 import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
 import { LmsBridge, type PublishFormat } from './lms/bridge'
-import { ImageStore } from './lms/images'
+import { ImageStore, missingAlt } from './lms/images'
 import { prepareUpload, toBase64, UploadError } from './lms/imageUpload'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
 import { openRequest, type OpenRequest } from './lms/openUrl'
@@ -88,6 +88,8 @@ const canSave = computed(() => Boolean(lms.value && !lms.value.readonly && lms.v
 /** Subir imágenes: se puede guardar y el plugin sirve imágenes (docs/imagenes). */
 const canUpload = computed(() => canSave.value && Boolean(lms.value?.asset_endpoint))
 const imageMessage = ref('')
+/** Imágenes sin texto alternativo en lo último cargado o guardado (aviso, no bloquea). */
+const missingAltCount = computed(() => (canSave.value ? missingAlt(lastSaved.value) : 0))
 const canPublish = computed(() => canSave.value && Boolean(lms.value?.publish_endpoint))
 const dirty = computed(() => saveState.value === 'dirty')
 const busy = computed(() => saveState.value === 'saving' || publishing.value)
@@ -139,7 +141,9 @@ async function mountEditor(markdown: string): Promise<LiaEditor> {
   root.value!.innerHTML = ''
   const instance = await createLiaEditor(root.value!, markdown, {
     onChange,
-    images: images ? { display: (url) => images!.display(url), upload: uploadImage } : undefined,
+    images: images
+      ? { display: (url) => images!.display(url), upload: uploadImage, beginUpload: () => (imageMessage.value = '') }
+      : undefined,
   })
   editor.value = instance
   return instance
@@ -147,8 +151,10 @@ async function mountEditor(markdown: string): Promise<LiaEditor> {
 
 /** Subida de una imagen desde Crepe: queda pendiente hasta el próximo guardado. */
 async function uploadImage(file: File): Promise<string> {
-  imageMessage.value = ''
-  if (!images || !canUpload.value) throw new Error('subida no disponible')
+  if (!images || !canUpload.value) {
+    imageMessage.value = t('image.error.unavailable')
+    throw new Error('subida no disponible')
+  }
   try {
     const prepared = await prepareUpload(file)
     images.addPending(prepared)
@@ -460,6 +466,9 @@ function toggleDebug(): void {
   </div>
 
   <div v-if="imageMessage" class="banner banner--error" role="alert">{{ imageMessage }}</div>
+  <div v-if="missingAltCount" class="banner banner--warning" role="status">
+    {{ missingAltCount === 1 ? t('image.missingAlt.one') : t('image.missingAlt.many', { n: missingAltCount }) }}
+  </div>
 
   <div v-if="publishMessage" class="banner" role="status">
     {{ publishMessage }}

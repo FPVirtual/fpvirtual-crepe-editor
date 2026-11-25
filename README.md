@@ -193,9 +193,14 @@ Las imágenes viven en el repositorio de contenidos, junto al material
   (también en el borrador local) hasta el próximo guardado, que la envía en
   el mismo commit que el Markdown. Solo viajan las que el documento sigue
   usando (`src/lms/imageUpload.ts`).
+- **Pegar y arrastrar**: igual que el botón. Varias imágenes a la vez se
+  preparan una a una; las que no se admiten (SVG, demasiado grandes) se
+  saltan con aviso y el resto entra (`src/editor/imagePaste.ts`; el uploader
+  de Crepe dejaba el marcador «Upload in progress...» colgado si fallaba una).
 - **Texto alternativo**: el pie que se edita bajo la imagen es su texto
   alternativo (`![texto](ruta)`). Crepe usaba ese campo para la proporción;
-  `src/editor/imageBlock.ts` lo corrige.
+  `src/editor/imageBlock.ts` lo corrige. Si el material guardado tiene
+  imágenes sin texto alternativo, un aviso lo indica (no impide guardar).
 - **CSP**: añade `blob:` a `img-src`.
 
 ## Despliegue

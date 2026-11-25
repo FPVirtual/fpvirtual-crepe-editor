@@ -40,6 +40,8 @@ export interface ImageHooks {
   display: (url: string) => string | Promise<string>
   /** Subida: devuelve la ruta relativa que se escribe en el Markdown. */
   upload?: (file: File) => Promise<string>
+  /** Empieza una subida (botón, pegar o soltar): borra los avisos anteriores. */
+  beginUpload?: () => void
 }
 
 export function crepeFeatureConfigs(
@@ -76,7 +78,12 @@ export function crepeFeatureConfigs(
       blockCaptionPlaceholderText: t('crepe.image.caption'),
       ...(images ? { proxyDomURL: images.display } : {}),
       // Sin subida propia, Crepe guardaría una URL blob: que se pierde al cerrar.
-      onUpload: images?.upload ?? (() => Promise.reject(new Error('subida no disponible'))),
+      onUpload: images?.upload
+        ? (file: File) => {
+            images.beginUpload?.()
+            return images.upload!(file)
+          }
+        : () => Promise.reject(new Error('subida no disponible')),
     },
     [Crepe.Feature.BlockEdit]: {
       textGroup: {

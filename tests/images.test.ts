@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LmsConfig } from '../src/liascript'
 import { splitDocument } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
-import { ImageStore, isExternal, normalizePath } from '../src/lms/images'
+import { ImageStore, isExternal, missingAlt, normalizePath } from '../src/lms/images'
+import { imageUploader } from '../src/editor/imagePaste'
+import { Schema } from '@milkdown/kit/prose/model'
 
 const CFG: LmsConfig = {
   save_endpoint: 'https://moodle/local/liamateriales/save.php',
@@ -150,5 +152,51 @@ describe('subida (fase 2)', () => {
     await bridge.save('# B\n', undefined, [{ path: 'img/a.png', content_base64: 'iVBORw==' }])
     expect(calls[0].body).not.toHaveProperty('images')
     expect(calls[1].body.images).toEqual([{ path: 'img/a.png', content_base64: 'iVBORw==' }])
+  })
+})
+
+describe('texto alternativo (fase 3)', () => {
+  it('cuenta las imágenes sin texto alternativo', () => {
+    const md = [
+      '![Esquema](img/a.png)',
+      '![](img/b.png)',
+      'Un párrafo con ![ ](img/c.png) dentro.',
+      '`![](en-codigo.png)` no cuenta, ni \\![](escapada.png)',
+      '```markdown',
+      '![](en-bloque.png)',
+      '```',
+      '!?[vídeo](https://youtu.be/x) y ?[audio](a.mp3) no son imágenes',
+    ].join('\n')
+    expect(missingAlt(md)).toBe(2)
+    expect(missingAlt('![Todo bien](img/a.png)')).toBe(0)
+    expect(missingAlt('![]()')).toBe(0) // bloque de imagen aún vacío
+  })
+})
+
+describe('pegar y arrastrar (fase 3)', () => {
+  const schema = new Schema({
+    nodes: {
+      doc: { content: 'block+' },
+      paragraph: { group: 'block', content: 'text*' },
+      text: {},
+      'image-block': { group: 'block', attrs: { src: { default: '' } } },
+    },
+  })
+  const list = (...files: File[]) => files as unknown as FileList
+  const png = (name: string) => new File([new Uint8Array([1])], name, { type: 'image/png' })
+
+  it('sube una a una y salta las que fallan (nunca rechaza)', async () => {
+    const upload = vi.fn(async (file: File) => {
+      if (file.name === 'mala.png') throw new Error('size')
+      return `img/${file.name}`
+    })
+    const svg = new File(['<svg/>'], 'x.txt', { type: 'text/plain' })
+    const nodes = (await imageUploader(upload)(list(png('a.png'), png('mala.png'), svg, png('b.png')), schema, {} as never, 0)) as never[]
+    expect(nodes.map((n: { attrs: { src: string } }) => n.attrs.src)).toEqual(['img/a.png', 'img/b.png'])
+    expect(upload).toHaveBeenCalledTimes(3) // el texto plano ni se intenta
+  })
+
+  it('sin subida disponible no inserta nada', async () => {
+    await expect(imageUploader(undefined)(list(png('a.png')), schema, {} as never, 0)).resolves.toEqual([])
   })
 })

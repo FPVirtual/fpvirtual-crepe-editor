@@ -20,6 +20,8 @@ import {
 } from '../liascript'
 import { crepeFeatureConfigs, type ImageHooks } from './crepeConfig'
 import { liaImageBlockSchema } from './imageBlock'
+import { imageUploader, uploadWidget } from './imagePaste'
+import { uploadConfig } from '@milkdown/kit/plugin/upload'
 import { extractOutline, type OutlineItem } from './outline'
 
 export interface LiaEditor {
@@ -72,6 +74,14 @@ export async function createLiaEditor(
   crepe.editor.use(liascript)
   // Bloque de imagen que conserva el texto alternativo (Crepe lo usa para la proporción).
   crepe.editor.use(liaImageBlockSchema)
+  // Pegar y arrastrar imágenes: una a una, sin dejar el marcador colgado.
+  crepe.editor.config((ctx) => {
+    ctx.update(uploadConfig.key, (prev) => ({
+      ...prev,
+      uploader: imageUploader(options.images?.upload, options.images?.beginUpload),
+      uploadWidgetFactory: uploadWidget,
+    }))
+  })
   if (options.onChange) {
     const onChange = options.onChange
     crepe.on((listener) => {

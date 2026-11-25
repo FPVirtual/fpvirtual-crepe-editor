@@ -30,6 +30,17 @@ export function referenced(markdown: string, path: string): boolean {
   return markdown.includes(`](${path}`) || markdown.includes(`](./${path}`)
 }
 
+/**
+ * Imágenes del Markdown sin texto alternativo (`![](ruta)`), fuera del código.
+ * Un bloque de imagen aún vacío (`![]()`) no cuenta. Solo avisa: no impide guardar (roadmap de imágenes, fase 3).
+ */
+export function missingAlt(markdown: string): number {
+  const prose = markdown
+    .replace(/^(\s*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2[ \t]*$/gm, '')
+    .replace(/`[^`\n]*`/g, '')
+  return (prose.match(/(^|[^\\])!\[\s*\]\(\s*[^\s)]/g) ?? []).length
+}
+
 export class ImageStore {
   readonly #fetchAsset: FetchAsset | null
   readonly #cache = new Map<string, Promise<string>>()

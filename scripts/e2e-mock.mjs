@@ -330,6 +330,28 @@ try {
   const sent = withImage?.images ?? []
   check('subida: el guardado lleva la imagen', sent.length === 1 && /^img\/foto-de-prueba-[0-9a-f]{8}\.jpg$/.test(sent[0].path), sent.map((i) => i.path).join(', '))
   check('subida: JPEG recodificado (sin EXIF) y referenciado en el Markdown', sent.length === 1 && Buffer.from(sent[0].content_base64, 'base64').subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) && withImage.content.includes(`](${sent[0].path})`))
+  check('texto alternativo: aviso de 1 imagen sin él (no bloquea el guardado)', await evaluate(cdp, `document.querySelector('.banner--warning')?.textContent.includes('1 imagen sin texto alternativo')`))
+
+  // 5b) Pegar (fase 3): un PNG y un SVG en el mismo pegado → entra el PNG, el SVG se rechaza con aviso.
+  await evaluate(cdp, `(async () => {
+    const c = document.createElement('canvas'); c.width = 40; c.height = 30
+    c.getContext('2d').fillRect(0, 0, 40, 30)
+    const blob = await new Promise((r) => c.toBlob(r, 'image/png'))
+    const dt = new DataTransfer()
+    dt.items.add(new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'dibujo.svg', { type: 'image/svg+xml' }))
+    dt.items.add(new File([blob], 'Pegada.png', { type: 'image/png' }))
+    const pm = document.querySelector('.ProseMirror'); pm.focus()
+    pm.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    return true
+  })()`)
+  await waitFor(cdp, `[...document.querySelectorAll('.ProseMirror img[src^="blob:"]')].some(i => i.complete && i.naturalWidth === 40)`, 'imagen pegada')
+  check('pegar: la imagen pegada se ve y no queda el marcador', await evaluate(cdp, `!document.querySelector('.lia-uploading')`))
+  check('pegar: el SVG se rechaza con aviso', await evaluate(cdp, `document.querySelector('.banner--error')?.textContent.includes('SVG no')`))
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado con imagen pegada')
+  const pasted = saves[saves.length - 1]?.images ?? []
+  check('pegar: el guardado lleva solo la imagen pegada', pasted.length === 1 && /^img\/pegada-[0-9a-f]{8}\.jpg$/.test(pasted[0].path), pasted.map((i) => i.path).join(', '))
   await typeAtEndOfFirstParagraph(cdp, ' Otra edición.')
   await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
   await ctrlS(cdp)
