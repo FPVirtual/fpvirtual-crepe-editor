@@ -13,7 +13,8 @@ fork de LiveEditor como capa de edición; el backend (plugin
 > - guardar (botón y Ctrl+S), con conflicto 409 (ver diferencias, recargar
 >   o forzar) y sesión caducada;
 > - renovar el token;
-> - publicar en H5P, ePub o PDF;
+> - enlace «Publicar…» a la página Publicar del plugin (con el material
+>   elegido; publicar se hace allí, con la sesión de Moodle);
 > - borrador local en IndexedDB y aviso al salir con cambios.
 >
 > Pendiente en M1: panel de cabecera y modo fuente.
@@ -54,11 +55,11 @@ npm test               # dialecto + round-trip de fixtures + rendimiento
 npm run typecheck
 npm run build          # dist/ estático
 npm run liaex:check    # equivalencia con el parser real de LiaScript (Docker)
-npm run e2e            # tras build: editar → guardar → 409 → forzar → publicar en Chrome
+npm run e2e            # tras build: editar → guardar → 409 → forzar → imágenes en Chrome
 ```
 
 `npm run e2e` levanta un backend simulado que reproduce las respuestas de
-`content.php`, `save.php`, `token.php` y `publish_api.php`. Controla Chrome
+`content.php`, `save.php`, `token.php` y `asset.php`. Controla Chrome
 headless por DevTools Protocol y deja una captura en `reports/e2e.png`.
 
 `npm test` genera `reports/` (round-trip, rendimiento, documentos
@@ -169,8 +170,10 @@ El plugin abre el editor con un **código de apertura** de un solo uso
 fragmento no se envía a ningún servidor; el editor lo borra de la barra de
 direcciones y lo canjea con `POST content.php {code}`, que devuelve el
 material con el token de edición. El token solo vive en la memoria del
-editor: se envía en el cuerpo de las peticiones (guardar, renovar,
-publicar y recargar con `POST content.php {token}`), nunca en una URL.
+editor: se envía en el cuerpo de las peticiones (guardar, renovar, pedir
+imágenes y recargar con `POST content.php {token}`), nunca en una URL.
+El enlace «Publicar…» (`publish_url` del bloque LMS, solo si el usuario
+puede publicar y del mismo origen que Moodle) no lleva token.
 
 Formatos antiguos, con el token en la URL (solo si el plugin tiene activo
 su ajuste `legacy_open_url`, pensado para el fork de LiveEditor):

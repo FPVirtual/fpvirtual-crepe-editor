@@ -15,7 +15,7 @@ import { useOutline } from './editor/useOutline'
 import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
 import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
-import { LmsBridge, type PublishFormat } from './lms/bridge'
+import { LmsBridge } from './lms/bridge'
 import { ImageStore, missingAlt } from './lms/images'
 import { prepareUpload, toBase64, UploadError } from './lms/imageUpload'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
@@ -66,11 +66,7 @@ const invalidErrors = ref<{ line?: number; message: string }[]>([])
 const lastSaved = ref('')
 const conflict = ref<{ resolutionBranch?: string; diffUrl?: string; currentSha?: string } | null>(null)
 
-const publishFormat = ref<PublishFormat>('h5p')
-const publishing = ref(false)
 const publishMessage = ref('')
-const publishUrl = ref<string | undefined>()
-const publishAvisos = ref<string[]>([])
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
 watchEffect(() => {
@@ -90,9 +86,10 @@ const canUpload = computed(() => canSave.value && Boolean(lms.value?.asset_endpo
 const imageMessage = ref('')
 /** Imágenes sin texto alternativo en lo último cargado o guardado (aviso, no bloquea). */
 const missingAltCount = computed(() => (canSave.value ? missingAlt(lastSaved.value) : 0))
-const canPublish = computed(() => canSave.value && Boolean(lms.value?.publish_endpoint))
+/** Publicar se hace en la página del plugin; el editor solo enlaza a ella. */
+const publishUrl = computed(() => (canSave.value ? lms.value?.publish_url : undefined))
 const dirty = computed(() => saveState.value === 'dirty')
-const busy = computed(() => saveState.value === 'saving' || publishing.value)
+const busy = computed(() => saveState.value === 'saving')
 
 const statusText = computed(() => {
   switch (saveState.value) {
@@ -243,7 +240,6 @@ function checkDirty(): void {
     if (saveState.value === 'dirty') saveState.value = 'idle'
     return
   }
-  if (saveState.value !== 'dirty') publishMessage.value = ''
   saveState.value = 'dirty'
   clearTimeout(draftTimer)
   draftTimer = setTimeout(() => void storeDraft(markdown), DRAFT_DEBOUNCE_MS)
@@ -309,6 +305,7 @@ async function save(baseSha?: string): Promise<void> {
       images?.markSaved(pending.map((image) => image.path))
       lastSaved.value = markdown
       saveState.value = 'saved'
+      publishMessage.value = ''
       await deleteDraft(draftKey(b.config.file, b.config.branch))
       break
     case 'conflict':
@@ -350,29 +347,14 @@ async function reloadServerVersion(): Promise<void> {
 
 // --- publicación ----------------------------------------------------------------
 
-async function publish(): Promise<void> {
-  const b = bridge
-  if (!b || busy.value) return
-  publishUrl.value = undefined
-  publishAvisos.value = []
-  if (dirty.value) {
-    publishMessage.value = t('publish.saveFirst')
+/** La página Publicar usa la última versión guardada: con cambios, avisa antes. */
+function openPublish(event: MouseEvent): void {
+  if (!dirty.value) {
+    publishMessage.value = ''
     return
   }
-  publishing.value = true
-  publishMessage.value = t('publish.running')
-  const result = await b.publish(publishFormat.value)
-  publishing.value = false
-  if (result.status === 'published') {
-    publishMessage.value = t('publish.done')
-    publishUrl.value = result.url
-    publishAvisos.value = result.avisos
-  } else if (result.status === 'auth_error') {
-    publishMessage.value = result.message ? t('publish.error', { message: result.message }) : ''
-    if (!result.message) saveState.value = 'auth'
-  } else {
-    publishMessage.value = t('publish.error', { message: result.message })
-  }
+  event.preventDefault()
+  publishMessage.value = t('publish.saveFirst')
 }
 
 // --- teclado y salida ------------------------------------------------------------
@@ -416,18 +398,17 @@ function toggleDebug(): void {
       </button>
     </template>
 
-    <template v-if="canPublish">
-      <label class="visually-hidden" for="publish-format">{{ t('publish.format') }}</label>
-      <select id="publish-format" v-model="publishFormat" class="select" :disabled="busy">
-        <option value="h5p">{{ t('publish.h5p') }}</option>
-        <option value="epub">{{ t('publish.epub') }}</option>
-        <option value="pdf">{{ t('publish.pdf') }}</option>
-        <option value="scorm">{{ t('publish.scorm') }}</option>
-        <option value="web">{{ t('publish.web') }}</option>
-        <option value="pdfcontenido">{{ t('publish.pdfcontenido') }}</option>
-      </select>
-      <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
-    </template>
+    <a
+      v-if="publishUrl"
+      class="btn"
+      :href="publishUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+      :title="t('publish.linkTitle')"
+      @click="openPublish"
+    >
+      {{ t('publish.link') }}
+    </a>
 
     <ThemeSelect />
     <a class="btn" href="./ayuda.html" target="md-ayuda" :title="t('help.buttonTitle')" @click.prevent="openHelp">
@@ -470,18 +451,7 @@ function toggleDebug(): void {
     {{ missingAltCount === 1 ? t('image.missingAlt.one') : t('image.missingAlt.many', { n: missingAltCount }) }}
   </div>
 
-  <div v-if="publishMessage" class="banner" role="status">
-    {{ publishMessage }}
-    <a v-if="publishUrl" class="btn" :href="publishUrl" target="_blank" rel="noopener noreferrer">
-      {{ t('publish.open') }}
-    </a>
-    <template v-if="publishAvisos.length">
-      <p class="banner-avisos">{{ t('publish.avisos') }}</p>
-      <ul>
-        <li v-for="(a, i) in publishAvisos" :key="i">{{ a }}</li>
-      </ul>
-    </template>
-  </div>
+  <div v-if="publishMessage" class="banner" role="status">{{ publishMessage }}</div>
 
   <p v-if="status === 'loading'" class="message">{{ t('app.loading') }}</p>
   <p v-else-if="status === 'nourl'" class="message">{{ t('app.noUrl') }}</p>

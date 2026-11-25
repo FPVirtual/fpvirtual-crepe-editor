@@ -16,13 +16,6 @@ export type SaveResult =
   | { status: 'auth_error'; message?: string }
   | { status: 'error'; message: string }
 
-export type PublishFormat = 'h5p' | 'epub' | 'pdf' | 'scorm' | 'web' | 'pdfcontenido'
-
-export type PublishResult =
-  | { status: 'published'; cmid?: number; url?: string; avisos: string[] }
-  | { status: 'auth_error'; message?: string }
-  | { status: 'error'; message: string }
-
 type Fetch = typeof fetch
 
 export class LmsBridge {
@@ -47,10 +40,6 @@ export class LmsBridge {
 
   canSave(): boolean {
     return !this.#cfg.readonly && Boolean(this.#cfg.token)
-  }
-
-  canPublish(): boolean {
-    return Boolean(this.#cfg.publish_endpoint) && this.canSave()
   }
 
   /**
@@ -102,27 +91,6 @@ export class LmsBridge {
           message: String(e.message ?? ''),
         })),
       }
-    }
-    if (status === 429) return { status: 'error', message: rateLimited(json) }
-    if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }
-    return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
-  }
-
-  /** Publicación en un clic: el backend genera el artefacto y crea el módulo. */
-  async publish(format: PublishFormat): Promise<PublishResult> {
-    if (!this.#cfg.publish_endpoint) return { status: 'error', message: 'publish_endpoint no declarado' }
-    const response = await this.#post(this.#cfg.publish_endpoint, {
-      file: this.#cfg.file,
-      sha: this.#cfg.sha,
-      format,
-      token: this.#cfg.token,
-    })
-    if ('error' in response) return { status: 'error', message: response.error }
-    const { status, json } = response
-    if (status >= 200 && status < 300) {
-      // avisos: sintaxis LiaScript que la web o el PDF de contenido no representan.
-      const avisos = Array.isArray(json.avisos) ? json.avisos.map(String) : []
-      return { status: 'published', cmid: typeof json.cmid === 'number' ? json.cmid : undefined, url: str(json.url), avisos }
     }
     if (status === 429) return { status: 'error', message: rateLimited(json) }
     if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }

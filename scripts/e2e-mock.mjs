@@ -1,7 +1,7 @@
-// Prueba e2e del ciclo editar → guardar → conflicto → forzar → publicar en
+// Prueba e2e del ciclo editar → guardar → conflicto → forzar → imágenes en
 // Chrome real, contra un backend simulado que replica las respuestas del
-// plugin local_liamateriales (content.php, save.php, token.php,
-// publish_api.php).
+// plugin local_liamateriales (content.php, save.php, token.php, asset.php).
+// Publicar no pasa por el editor: solo enlaza a la página Publicar del plugin.
 //
 // Uso: npm run build && node scripts/e2e-mock.mjs
 // Requiere google-chrome. Deja una captura en reports/e2e.png.
@@ -62,7 +62,7 @@ function inject(markdown, token) {
     `  token: ${token}\n` +
     '  readonly: false\n' +
     `  return_url: ${MOCK}/my/courses.php\n` +
-    `  publish_endpoint: ${MOCK}/publish_api.php\n`
+    `  publish_url: ${MOCK}/local/liamateriales/publish.php?id=2&file=materiales%2Fut03-mvc.md\n`
   const end = markdown.indexOf('-->')
   return markdown.slice(0, end) + yaml + markdown.slice(end)
 }
@@ -132,8 +132,8 @@ const mock = createServer((req, res) => {
       return
     }
     if (url.pathname === '/publish_api.php') {
-      publishes.push(data)
-      json(res, 200, { status: 'published', cmid: 99, url: `${MOCK}/mod/resource/view.php?id=99` })
+      publishes.push(data) // retirado del plugin: el editor no debe llamarlo
+      json(res, 404, { status: 'error' })
       return
     }
     json(res, 404, { status: 'error' })
@@ -266,8 +266,8 @@ try {
   check('ninguna URL de content.php lleva token', contentRequests.every((r) => !r.url.includes('token')))
   check('el código desaparece de la barra de direcciones', (await evaluate(cdp, 'location.hash')) === '')
   check(
-    'barra con Guardar y Publicar',
-    await evaluate(cdp, `[...document.querySelectorAll('button')].some(b => b.textContent.includes('Guardar')) && !!document.querySelector('#publish-format')`),
+    'barra con Guardar y el enlace a Publicar, sin selector de formato',
+    await evaluate(cdp, `[...document.querySelectorAll('button')].some(b => b.textContent.includes('Guardar')) && !!document.querySelector('a[href*="publish.php"]') && !document.querySelector('#publish-format')`),
   )
   const versionText = await evaluate(cdp, `document.querySelector('.topbar__branch').textContent.replace(/\\s+/g, ' ').trim()`)
   check('barra: rama y fecha de la versión, sin SHA', versionText.includes('20/11/2026, 09:05') && !versionText.includes(SHA0.slice(0, 8)), versionText)
@@ -308,12 +308,20 @@ try {
   await sleep(800)
   check('tras guardar, cerrar el diálogo no deja el material como modificado', await evaluate(cdp, `document.querySelector('.topbar__status').textContent.includes('Guardado')`))
 
-  // 4) Publicar.
-  await evaluate(cdp, `(() => { const s = document.querySelector('#publish-format'); s.value = 'epub'; s.dispatchEvent(new Event('change')); return true })()`)
-  await evaluate(cdp, `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Publicar').click(), true`)
-  await waitFor(cdp, `document.body.textContent.includes('Publicado en el curso')`, 'publicación')
-  check('publicar: {file, sha, format, token} con el SHA guardado', publishes[0]?.format === 'epub' && publishes[0]?.sha === '2'.repeat(40) && publishes[0]?.token === 'tok3')
-  check('publicar: enlace al módulo', await evaluate(cdp, `!!document.querySelector('a[href*="mod/resource/view.php"]')`))
+  // 4) Publicar: enlace a la página Publicar del plugin (con sesión de Moodle).
+  const publishLink = await evaluate(cdp, `(() => { const a = document.querySelector('a[href*="publish.php"]'); return { href: a.href, target: a.target, rel: a.rel } })()`)
+  check(
+    'publicar: enlace a publish.php con curso y material, sin token, en otra pestaña',
+    publishLink.href === `${MOCK}/local/liamateriales/publish.php?id=2&file=materiales%2Fut03-mvc.md` && !publishLink.href.includes('tok') && publishLink.target === '_blank' && publishLink.rel.includes('noopener'),
+    publishLink.href,
+  )
+  await typeAtEndOfFirstParagraph(cdp, ' Antes de publicar.')
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await evaluate(cdp, `document.querySelector('a[href*="publish.php"]').click(), true`)
+  check('publicar: con cambios sin guardar avisa y no abre la página', await evaluate(cdp, `document.body.textContent.includes('Guarda los cambios antes de publicar')`))
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado antes de publicar')
+  check('publicar: el aviso desaparece al guardar', await evaluate(cdp, `!document.body.textContent.includes('Guarda los cambios antes de publicar')`))
 
   // 5) Subir una imagen (fase 2): bloque de imagen vacío → fichero real de 2600 px.
   const upload = join(tmpdir(), 'Foto de prueba.png')
@@ -365,6 +373,7 @@ try {
   await ctrlS(cdp)
   await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Demasiadas peticiones')`, 'aviso de 429')
   check('429: aviso «Demasiadas peticiones» con la espera', await evaluate(cdp, `document.querySelector('.topbar__status').textContent.includes('42 segundos')`))
+  check('el editor nunca llama a publish_api.php', publishes.length === 0)
   check('429: no se pierde el trabajo', await evaluate(cdp, `document.querySelector('.ProseMirror').textContent.includes('LIMITE')`))
 
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' })
