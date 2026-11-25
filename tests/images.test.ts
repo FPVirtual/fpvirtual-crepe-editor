@@ -7,6 +7,8 @@ import { splitDocument } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
 import { ImageStore, imageRefs, isExternal, missingAlt, normalizePath } from '../src/lms/images'
 import { imageUploader } from '../src/editor/imagePaste'
+import { shortHash } from '../src/lms/imageUpload'
+import { sha256Hex } from '../src/lms/sha256'
 import { Schema } from '@milkdown/kit/prose/model'
 
 const CFG: LmsConfig = {
@@ -221,5 +223,38 @@ describe('borrado (las imágenes que el material deja de usar)', () => {
     // Guardada otra vez: ya no se reenvía.
     store.markSaved(['img/a.png'], '# sin imagen', before)
     expect(store.pendingFor(before)).toEqual([])
+  })
+})
+
+describe('hash del nombre sin contexto seguro', () => {
+  // Servido por http no hay crypto.subtle: la subida fallaba con «No se pudo leer la imagen».
+  const hex = (s: string) => sha256Hex(new TextEncoder().encode(s))
+
+  it('sha256Hex da los vectores de FIPS 180-4', () => {
+    expect(hex('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+    expect(hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+    expect(hex('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq')).toBe(
+      '248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1',
+    )
+  })
+
+  it('sha256Hex coincide con crypto.subtle en bloques de varios tamaños', async () => {
+    for (const size of [1, 55, 56, 63, 64, 65, 1000, 300_000]) {
+      const data = new Uint8Array(size).map((_, i) => (i * 31 + size) & 0xff)
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data))
+      expect(sha256Hex(data)).toBe([...digest].map((b) => b.toString(16).padStart(2, '0')).join(''))
+    }
+  })
+
+  it('shortHash da el mismo nombre con y sin crypto.subtle', async () => {
+    const blob = new Blob([new Uint8Array([1, 2, 3, 4, 5])])
+    const conSubtle = await shortHash(blob)
+    vi.stubGlobal('crypto', {})
+    try {
+      expect(await shortHash(blob)).toBe(conSubtle)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(conSubtle).toMatch(/^[0-9a-f]{8}$/)
   })
 })

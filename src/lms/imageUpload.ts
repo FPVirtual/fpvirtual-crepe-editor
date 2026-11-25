@@ -8,6 +8,8 @@
 // - Nombre: `img/<slug>-<hash8>.<ext>`, relativo al material, con el hash del
 //   contenido: la misma imagen dos veces es el mismo fichero.
 
+import { sha256Hex } from './sha256'
+
 export const MAX_SIDE = 1920
 export const MAX_BYTES = 2 * 1024 * 1024
 const ACCEPTED = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -44,10 +46,19 @@ export function fitSize(width: number, height: number, max = MAX_SIDE): { width:
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
 }
 
-/** SHA-256 en hexadecimal (8 primeros caracteres). */
+/**
+ * SHA-256 en hexadecimal (8 primeros caracteres). Con crypto.subtle si existe;
+ * si no (página servida por http, fuera de un contexto seguro), con la
+ * implementación en JavaScript: mismo resultado.
+ */
 export async function shortHash(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 8)
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const subtle = globalThis.crypto?.subtle
+  if (subtle) {
+    const digest = await subtle.digest('SHA-256', bytes)
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 8)
+  }
+  return sha256Hex(bytes).slice(0, 8)
 }
 
 /** Base64 de un blob (para el cuerpo del guardado). */
