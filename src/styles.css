@@ -76,15 +76,26 @@ a { color: var(--md-color-primary-text); }
 }
 .btn--danger { border-color: var(--md-color-danger); color: var(--md-color-danger); }
 
-.select {
-  font: inherit; padding: 6px 8px;
-  border-radius: var(--md-radius);
-  border: 1px solid var(--md-color-border-strong);
-  background: var(--md-color-surface);
-  color: var(--md-color-text);
-}
-
 .btn--small { padding: 5px 14px; font-size: 13px; line-height: 1.3; }
+
+/* Grupo de botones con icono (tema de colores; AppIcon.vue). */
+.icon-group {
+  display: inline-flex;
+  border: 1px solid var(--md-color-border-strong);
+  border-radius: var(--md-radius);
+  overflow: hidden;
+}
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 32px; padding: 0; cursor: pointer;
+  border: 0; background: var(--md-color-surface); color: var(--md-color-text-muted);
+}
+.icon-btn + .icon-btn { border-left: 1px solid var(--md-color-border); }
+.icon-btn:hover { background: var(--md-color-hover); color: var(--md-color-text); }
+.icon-btn[aria-checked="true"], .icon-btn[aria-pressed="true"] {
+  background: var(--md-color-primary-fill); color: var(--md-color-on-primary);
+}
+.icon-btn:focus-visible { outline: 2px solid var(--md-color-primary); outline-offset: -2px; }
 
 /* Área de trabajo: panel izquierdo (índice) + documento + panel derecho (LiaScript). */
 .workspace { display: flex; align-items: flex-start; }
@@ -454,3 +465,53 @@ a { color: var(--md-color-primary-text); }
 .dialog__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------------------------------------------------------------------------
+   Maquetación: columnas (lia_columns) e imágenes con ancho (imageWidth.ts).
+   --------------------------------------------------------------------------- */
+.editor .milkdown { position: relative; }
+
+.milkdown .lia-columns {
+  display: flex; flex-wrap: wrap; gap: 1.5em;
+  margin: 1em 0; padding: 4px;
+  border: 1px dashed var(--md-color-border);
+  border-radius: var(--md-radius);
+}
+.milkdown .lia-column {
+  flex: 1 1 14em; min-width: 0;
+  padding: 0 8px;
+  border-radius: var(--md-radius);
+}
+.milkdown .lia-column + .lia-column { border-left: 1px dashed var(--md-color-border); }
+.milkdown .lia-columns:hover, .milkdown .lia-columns:focus-within { border-color: var(--md-color-border-strong); }
+.milkdown .lia-columns.ProseMirror-selectednode { outline: 2px solid var(--md-color-primary); }
+
+/* Imagen: el ancho lo decide el atributo `width` (no el alto de Crepe). */
+.milkdown .milkdown-image-block img { height: auto !important; max-width: 100%; }
+.milkdown .milkdown-image-block .image-resize-handle { display: none; }
+.milkdown .milkdown-image-block.lia-image--sized { margin-inline: auto; }
+
+.milkdown .lia-image-width {
+  position: absolute; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  width: max-content; max-width: 100%; white-space: nowrap;
+  padding: 6px 8px;
+  background: var(--md-color-surface);
+  border: 1px solid var(--md-color-border-strong);
+  border-radius: var(--md-radius);
+  box-shadow: var(--md-shadow-2);
+  font-size: 13px;
+}
+.milkdown .lia-image-width[hidden] { display: none; }
+.milkdown .lia-image-width__label { font-weight: 600; }
+.milkdown .lia-image-width input[type="range"] { width: 120px; accent-color: var(--md-color-primary-fill); }
+.milkdown .lia-image-width__value { min-width: 4.5em; color: var(--md-color-text-muted); }
+.milkdown .lia-image-width__preset {
+  font: inherit; padding: 2px 8px; cursor: pointer;
+  border: 1px solid var(--md-color-border); border-radius: var(--md-radius);
+  background: var(--md-color-surface); color: var(--md-color-text);
+}
+.milkdown .lia-image-width__preset:hover { background: var(--md-color-hover); }
+.milkdown .lia-image-width__preset[aria-pressed="true"] {
+  background: var(--md-color-primary-fill); border-color: var(--md-color-primary-fill); color: var(--md-color-on-primary);
+}

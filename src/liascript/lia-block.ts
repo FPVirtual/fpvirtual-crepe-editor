@@ -18,6 +18,7 @@ import type { Root, RootContent } from 'mdast'
 
 import { t } from '../i18n'
 import { classifyBlock, type LiaKind } from './classify'
+import { groupColumns, imageWithWidth, type ColumnsMdast } from './columns'
 import { parseBox, renderInline } from './box'
 import { summarizeQuiz } from './quiz'
 
@@ -56,9 +57,23 @@ export function remarkLiaBlocks() {
   return (tree: Root, file: { value?: unknown }) => {
     const source = typeof file?.value === 'string' ? file.value : null
     if (!source) return // p. ej. ejecuciones sin fuente: nada que recortar
+    // Maquetación del editor (columns.ts) antes de proteger: columnas e
+    // imágenes con ancho se editan en visual, no como bloques HTML.
+    tree.children = protect(groupColumns(tree.children.map((n) => imageWithWidth(n) ?? n)), source)
+  }
+}
 
+/** Protege los bloques LiaScript de una lista (nivel superior o una columna). */
+function protect(children: RootContent[], source: string): RootContent[] {
+  for (const node of children) {
+    if ((node.type as string) !== 'liaColumns') continue
+    for (const column of (node as unknown as ColumnsMdast).children) {
+      column.children = protect(column.children.map((n) => imageWithWidth(n) ?? n), source)
+    }
+  }
+  {
     const items: Item[] = []
-    for (const node of tree.children) {
+    for (const node of children) {
       const pos = node.position
       if (pos?.start.offset === undefined || pos.end.offset === undefined) {
         // Sin posición no se puede recortar la fuente: se deja intacto y corta grupos.
@@ -73,7 +88,11 @@ export function remarkLiaBlocks() {
         end: pos.end.offset,
         startLine: pos.start.line,
         endLine: pos.end.line,
-        kind: classifyBlock(node as { type: string; meta?: string | null }, text),
+        // Columnas e imagen con ancho: maquetación editable, nunca protegida.
+        kind:
+          (node.type as string) === 'liaColumns' || (node.type as string) === 'image-block'
+            ? null
+            : classifyBlock(node as { type: string; meta?: string | null }, text),
         starRule: node.type === 'thematicBreak' && STAR_RULE.test(text),
       })
     }
@@ -105,7 +124,7 @@ export function remarkLiaBlocks() {
       groups.push(group)
     }
 
-    tree.children = groups.flatMap((group) => {
+    return groups.flatMap((group) => {
       const kind = group.find((it) => it.kind)?.kind
       if (!kind) return group.map((it) => it.node)
       const first = group[0]

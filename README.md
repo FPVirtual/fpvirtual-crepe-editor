@@ -85,8 +85,10 @@ Sistema de tokens en tres capas (`src/theme/`):
 3. **Componente**: `hope.css` (único mapeo `--md-*` → `--crepe-*` y estética
    vuepress-theme-hope sobre ProseMirror) y `styles.css` solo usan `var(--md-*)`.
 
-Temas: `verde` (claro, por defecto), `oscuro` y `contraste` (AAA, 7:1). El selector
-de la barra guarda la elección; en «automático» se sigue `prefers-contrast` y
+Temas: `verde` (claro, por defecto), `oscuro` y `contraste` (AAA, 7:1). Se eligen
+con cuatro iconos en la barra (`ThemeSelect.vue`, grupo de opciones accesible con
+flechas; iconos SVG en línea de `AppIcon.vue`: pantalla = automático, sol, luna y
+contraste). La elección se guarda; en «automático» se sigue `prefers-contrast` y
 `prefers-color-scheme`. `?theme=<id>` fuerza un tema. Los tests comprueban el
 contraste WCAG de cada tema y que no haya colores literales fuera de la paleta.
 
@@ -204,7 +206,41 @@ Las imágenes viven en el repositorio de contenidos, junto al material
   alternativo (`![texto](ruta)`). Crepe usaba ese campo para la proporción;
   `src/editor/imageBlock.ts` lo corrige. Si el material guardado tiene
   imágenes sin texto alternativo, un aviso lo indica (no impide guardar).
+- **Ancho**: al pulsar una imagen aparece la barra *Ancho* (10–100 %, del
+  ancho del texto o de la columna; 100 % = ancho imprimible del PDF). Se
+  guarda como en LiaScript: `![alt](img/x.png)<!-- style="width: 40%;" -->`
+  (`src/editor/imageWidth.ts`). El tirador de alto de Crepe se oculta: no
+  se guardaba.
+- **Borrar**: al guardar, el engine borra de Git las imágenes que el
+  material deja de usar. Si se deshace el borrado después, el editor
+  reenvía la imagen (`ImageStore`).
 - **CSP**: añade `blob:` a `img-src`.
+
+## Columnas
+
+LiaScript no tiene clases de columnas, pero aplica el estilo de un `<div>` a
+su Markdown. El editor lee y escribe este formato (comprobado con liaex y en
+el PDF de contenido del engine), y lo edita como columnas, no como HTML
+protegido (`src/liascript/columns.ts`, `columns-node.ts`):
+
+```markdown
+<div class="lia-columnas" style="display: flex; flex-wrap: wrap; gap: 1.5em;">
+<div class="lia-columna" style="flex: 1 1 14em; min-width: 0;">
+
+Primera columna (cualquier bloque Markdown o LiaScript).
+
+</div>
+<div class="lia-columna" style="flex: 1 1 14em; min-width: 0;">
+
+![Imagen](img/x.png)
+
+</div>
+</div>
+```
+
+Se insertan desde el menú «/» o el panel LiaScript: *Dos columnas*, *Texto
+e imagen* y *Dos imágenes lado a lado*. De 2 a 3 columnas; si las marcas no
+forman una estructura completa, quedan como HTML protegido.
 
 ## Despliegue
 

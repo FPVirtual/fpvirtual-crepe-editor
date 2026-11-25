@@ -23,7 +23,12 @@ const SHA0 = 'a'.repeat(40)
 // Material real más imágenes relativas (docs/imagenes): una de bloque y otra en línea.
 const material =
   readFileSync(join(ROOT, 'fixtures/real/ut03-mvc.md'), 'utf8') +
-  '\n## Imágenes\n\n![Esquema del patrón](img/esquema.png)\n\nUna foto ![foto](./img/foto.png) en línea.\n\n![]()\n'
+  '\n## Imágenes\n\n![Esquema del patrón](img/esquema.png)\n\nUna foto ![foto](./img/foto.png) en línea.\n\n![]()\n' +
+  // Maquetación: dos columnas (texto e imagen) e imagen con ancho.
+  '\n## Maquetación\n\n<div class="lia-columnas" style="display: flex; flex-wrap: wrap; gap: 1.5em;">\n' +
+  '<div class="lia-columna" style="flex: 1 1 14em; min-width: 0;">\n\nTexto IZQUIERDA.\n\n</div>\n' +
+  '<div class="lia-columna" style="flex: 1 1 14em; min-width: 0;">\n\n![Diagrama](img/diagrama.png)\n\n</div>\n</div>\n\n' +
+  '![Con ancho](img/ancho.png)<!-- style="width: 40%;" -->\n'
 // PNG de 1×1 que sirve el asset.php simulado.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
 const assetRequests = []
@@ -229,6 +234,11 @@ async function typeAtEndOfFirstParagraph(cdp, text) {
   await cdp.send('Input.insertText', { text })
 }
 
+async function capture(cdp, name) {
+  const r = await cdp.send('Page.captureScreenshot', { format: 'png' })
+  writeFileSync(join(ROOT, `reports/${name}.png`), Buffer.from(r.result.data, 'base64'))
+}
+
 const checks = []
 const consoleLog = []
 function check(name, ok, detail = '') {
@@ -366,6 +376,69 @@ try {
   await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado sin imágenes')
   await sleep(300)
   check('subida: el siguiente guardado ya no la reenvía', !saves[saves.length - 1].images)
+
+  // 5c) Tema con iconos (sin desplegable): grupo de opciones con flechas.
+  check(
+    'tema: cuatro iconos en un grupo de opciones, sin desplegable',
+    await evaluate(cdp, `document.querySelectorAll('[role=radiogroup] [role=radio] svg').length === 4 && !document.querySelector('#theme-select, select')`),
+  )
+  await evaluate(cdp, `document.querySelector('[role=radio][aria-label="Tema oscuro"]').click(), true`)
+  check('tema: el icono de la luna pone el tema oscuro', await evaluate(cdp, `document.documentElement.dataset.theme === 'oscuro' && document.querySelector('[role=radio][aria-label="Tema oscuro"]').getAttribute('aria-checked') === 'true'`))
+  await evaluate(cdp, `document.querySelector('[role=radio][aria-checked=true]').focus(), true`)
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 })
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 })
+  check('tema: con las flechas se pasa al anterior (verde)', await evaluate(cdp, `document.documentElement.dataset.theme === 'verde'`))
+
+  // 5d) Columnas e imagen con ancho: se editan en visual, no como tarjetas HTML.
+  check(
+    'columnas: dos columnas editables, sin tarjeta HTML',
+    await evaluate(cdp, `(() => { const c = document.querySelector('.ProseMirror .lia-columns'); return !!c && c.querySelectorAll(':scope > .lia-column').length === 2 && !c.querySelector('.lia-card') && c.textContent.includes('Texto IZQUIERDA') })()`),
+  )
+  const sideBySide = await evaluate(cdp, `(() => { const [a, b] = document.querySelectorAll('.ProseMirror .lia-columns > .lia-column'); const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return Math.abs(ra.top - rb.top) < 2 && rb.left > ra.right - 1 })()`)
+  check('columnas: lado a lado en pantalla', sideBySide)
+  const sized = `[...document.querySelectorAll('.ProseMirror .milkdown-image-block')].find(b => b.querySelector('img')?.alt === 'Con ancho' || b.textContent.includes('Con ancho') || b.querySelector('input')?.value === 'Con ancho')`
+  check('ancho: la imagen se pinta al 40 %', await evaluate(cdp, `(() => { const b = ${sized}; return !!b && b.style.width === '40%' })()`))
+
+  // 5e) Cambiar el ancho desde la barra: clic en la imagen → «50 %» → guardar.
+  async function clickImage(selector) {
+    const box = await evaluate(cdp, `(() => { const b = ${selector}; const img = b.querySelector('img'); img.scrollIntoView({ block: 'center' }); const r = img.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 20) } })()`)
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await cdp.send('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 })
+    }
+  }
+  await clickImage(sized)
+  await waitFor(cdp, `!!document.querySelector('.lia-image-width:not([hidden])')`, 'barra del ancho')
+  await capture(cdp, 'e2e-ancho')
+  check('ancho: la barra muestra el ancho actual', await evaluate(cdp, `document.querySelector('.lia-image-width input[type=range]').value === '40' && document.querySelector('.lia-image-width__value').textContent.includes('40')`))
+  await evaluate(cdp, `[...document.querySelectorAll('.lia-image-width__preset')].find(b => b.textContent.trim() === '50 %').click(), true`)
+  await waitFor(cdp, `(() => { const b = ${sized}; return b && b.style.width === '50%' })()`, 'imagen al 50 %')
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado con el ancho nuevo')
+  const widthSave = saves[saves.length - 1]?.content ?? ''
+  check(
+    'ancho: se guarda como comentario LiaScript',
+    widthSave.includes('![Con ancho](img/ancho.png)<!-- style="width: 50%;" -->') && !widthSave.includes('width: 40%'),
+  )
+  check('columnas: se guardan sin cambios', widthSave.includes('<div class="lia-columnas" style="display: flex; flex-wrap: wrap; gap: 1.5em;">\n<div class="lia-columna"'))
+
+  // 5f) Borrar una imagen: seleccionarla y Retroceso → el Markdown ya no la usa.
+  await clickImage(`[...document.querySelectorAll('.ProseMirror .milkdown-image-block')].find(b => (b.querySelector('img')?.alt ?? '') === 'Esquema del patrón' || (b.querySelector('input')?.value ?? '') === 'Esquema del patrón')`)
+  await sleep(200)
+  await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 })
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 })
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar tras borrar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado tras borrar la imagen')
+  const afterDelete = saves[saves.length - 1]?.content ?? ''
+  check('borrar: la imagen desaparece del Markdown y el resto sigue', !afterDelete.includes('img/esquema.png') && afterDelete.includes('img/ancho.png') && afterDelete.includes('./img/foto.png'))
+
+  // 5g) Insertar «Dos imágenes lado a lado» desde el panel LiaScript.
+  await evaluate(cdp, `(() => { const s = [...document.querySelectorAll('.lia-example')].find(d => d.querySelector('summary').textContent.includes('Dos imágenes lado a lado')); s.open = true; s.querySelector('.btn--primary').click(); return true })()`)
+  await waitFor(cdp, `document.querySelectorAll('.ProseMirror .lia-columns').length === 2`, 'columnas insertadas')
+  await evaluate(cdp, `[...document.querySelectorAll('.ProseMirror .lia-columns')].at(-1).scrollIntoView({ block: 'center' }), true`)
+  await capture(cdp, 'e2e-columnas')
+  check('insertar: dos columnas con un bloque de imagen vacío cada una', await evaluate(cdp, `[...document.querySelectorAll('.ProseMirror .lia-columns')].some(c => c.querySelectorAll('.lia-column .milkdown-image-block').length === 2)`))
 
   // 6) Límite de uso: 429 al guardar → aviso y el texto sigue en el editor.
   await typeAtEndOfFirstParagraph(cdp, ' LIMITE')

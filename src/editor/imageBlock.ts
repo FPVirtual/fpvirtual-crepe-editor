@@ -8,16 +8,25 @@
 //   ![texto alternativo](ruta "título")  ⇄  bloque {src, caption = alt, title}
 //
 // El pie que se edita bajo la imagen ES el texto alternativo; el título se
-// conserva tal cual y la proporción (tamaño en pantalla) no se escribe en el
-// Markdown.
+// conserva tal cual y la proporción de Crepe (alto en pantalla) no se escribe
+// en el Markdown. El ancho sí: `width` (% del ancho del texto, 100 = ancho
+// imprimible del PDF) se escribe como comentario LiaScript tras la imagen:
+//
+//   ![texto alternativo](ruta)<!-- style="width: 40%;" -->
 
 import { imageBlockSchema } from '@milkdown/kit/component/image-block'
+
+import { widthComment } from '../liascript/columns'
 
 export const liaImageBlockSchema = imageBlockSchema.extendSchema((prev) => (ctx) => {
   const base = prev(ctx)
   return {
     ...base,
-    attrs: { ...base.attrs, title: { default: '', validate: 'string' } },
+    attrs: {
+      ...base.attrs,
+      title: { default: '', validate: 'string' },
+      width: { default: null },
+    },
     parseMarkdown: {
       match: ({ type }) => type === 'image-block',
       runner: (state, node, type) => {
@@ -26,6 +35,7 @@ export const liaImageBlockSchema = imageBlockSchema.extendSchema((prev) => (ctx)
           caption: String(node.alt ?? ''),
           title: String(node.title ?? ''),
           ratio: 1,
+          width: typeof node.liaWidth === 'number' ? node.liaWidth : null,
         })
       },
     },
@@ -38,6 +48,7 @@ export const liaImageBlockSchema = imageBlockSchema.extendSchema((prev) => (ctx)
           alt: node.attrs.caption,
           title: node.attrs.title || null,
         })
+        if (node.attrs.width) state.addNode('html', undefined, widthComment(node.attrs.width as number))
         state.closeNode()
       },
     },
