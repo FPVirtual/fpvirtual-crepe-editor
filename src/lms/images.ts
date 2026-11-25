@@ -30,6 +30,18 @@ export function referenced(markdown: string, path: string): boolean {
   return markdown.includes(`](${path}`) || markdown.includes(`](./${path}`)
 }
 
+/** Rutas relativas de las imágenes que usa el Markdown (`![…](ruta)` y `<img src>`). */
+export function imageRefs(markdown: string): Set<string> {
+  const refs = new Set<string>()
+  const patterns = [/!\[(?:[^\]\\]|\\.)*\]\(\s*<?([^\s)>]+)/g, /<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi]
+  for (const pattern of patterns) {
+    for (const match of markdown.matchAll(pattern)) {
+      if (!isExternal(match[1])) refs.add(normalizePath(match[1]))
+    }
+  }
+  return refs
+}
+
 /**
  * Imágenes del Markdown sin texto alternativo (`![](ruta)`), fuera del código.
  * Un bloque de imagen aún vacío (`![]()`) no cuenta. Solo avisa: no impide guardar (roadmap de imágenes, fase 3).
@@ -45,6 +57,10 @@ export class ImageStore {
   readonly #fetchAsset: FetchAsset | null
   readonly #cache = new Map<string, Promise<string>>()
   readonly #pending = new Map<string, Blob>()
+  /** Bytes de las imágenes vistas o subidas (para reenviar una borrada). */
+  readonly #blobs = new Map<string, Blob>()
+  /** Borradas de Git por un guardado (el material dejó de usarlas). */
+  readonly #removed = new Set<string>()
 
   constructor(fetchAsset: FetchAsset | null) {
     this.#fetchAsset = fetchAsset
@@ -58,7 +74,11 @@ export class ImageStore {
     if (!entry) {
       if (!this.#fetchAsset) return url
       const fetchAsset = this.#fetchAsset
-      entry = fetchAsset(key).then((blob) => (blob ? URL.createObjectURL(blob) : url))
+      entry = fetchAsset(key).then((blob) => {
+        if (!blob) return url
+        this.#blobs.set(key, blob)
+        return URL.createObjectURL(blob)
+      })
       this.#cache.set(key, entry)
       // Un fallo no se cachea: se reintentará al volver a pintar.
       void entry.then((shown) => {
@@ -72,12 +92,22 @@ export class ImageStore {
   addPending(image: PendingImage): void {
     const key = normalizePath(image.path)
     this.#pending.set(key, image.blob)
+    this.#blobs.set(key, image.blob)
+    this.#removed.delete(key)
     this.#cache.set(key, Promise.resolve(URL.createObjectURL(image.blob)))
   }
 
-  /** Imágenes pendientes que el Markdown sigue usando (las quitadas no se suben). */
+  /**
+   * Imágenes que hay que enviar con el guardado: las subidas que el Markdown
+   * sigue usando y las que un guardado anterior borró de Git y vuelven a
+   * usarse (deshacer después de guardar).
+   */
   pendingFor(markdown: string): PendingImage[] {
-    return [...this.#pending].filter(([path]) => referenced(markdown, path)).map(([path, blob]) => ({ path, blob }))
+    const used = [...this.#pending].filter(([path]) => referenced(markdown, path))
+    const back = [...this.#removed]
+      .filter((path) => referenced(markdown, path) && this.#blobs.has(path))
+      .map((path) => [path, this.#blobs.get(path)!] as const)
+    return [...used, ...back].map(([path, blob]) => ({ path, blob }))
   }
 
   /** Todas las pendientes (para el borrador local). */
@@ -85,9 +115,21 @@ export class ImageStore {
     return [...this.#pending].map(([path, blob]) => ({ path, blob }))
   }
 
-  /** Tras guardar: ya están en Git; dejan de estar pendientes (siguen en caché). */
-  markSaved(paths: string[]): void {
-    for (const path of paths) this.#pending.delete(normalizePath(path))
+  /**
+   * Tras guardar: las enviadas ya están en Git (siguen en caché). Las que
+   * `before` usaba y `after` ya no, el engine las ha borrado de Git: se
+   * recuerdan por si vuelven a usarse.
+   */
+  markSaved(paths: string[], before = '', after = ''): void {
+    for (const path of paths) {
+      const key = normalizePath(path)
+      this.#pending.delete(key)
+      this.#removed.delete(key)
+    }
+    const now = imageRefs(after)
+    for (const path of imageRefs(before)) {
+      if (!now.has(path)) this.#removed.add(path)
+    }
   }
 
   /** Libera las URL `blob:` (al cambiar de material). */
@@ -99,5 +141,7 @@ export class ImageStore {
     }
     this.#cache.clear()
     this.#pending.clear()
+    this.#blobs.clear()
+    this.#removed.clear()
   }
 }

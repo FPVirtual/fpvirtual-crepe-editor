@@ -302,7 +302,11 @@ async function save(baseSha?: string): Promise<void> {
   syncLms()
   switch (result.status) {
     case 'saved':
-      images?.markSaved(pending.map((image) => image.path))
+      images?.markSaved(
+        pending.map((image) => image.path),
+        lastSaved.value,
+        markdown,
+      )
       lastSaved.value = markdown
       saveState.value = 'saved'
       publishMessage.value = ''

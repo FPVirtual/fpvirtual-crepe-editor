@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LmsConfig } from '../src/liascript'
 import { splitDocument } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
-import { ImageStore, isExternal, missingAlt, normalizePath } from '../src/lms/images'
+import { ImageStore, imageRefs, isExternal, missingAlt, normalizePath } from '../src/lms/images'
 import { imageUploader } from '../src/editor/imagePaste'
 import { Schema } from '@milkdown/kit/prose/model'
 
@@ -198,5 +198,28 @@ describe('pegar y arrastrar (fase 3)', () => {
 
   it('sin subida disponible no inserta nada', async () => {
     await expect(imageUploader(undefined)(list(png('a.png')), schema, {} as never, 0)).resolves.toEqual([])
+  })
+})
+
+describe('borrado (las imágenes que el material deja de usar)', () => {
+  it('imageRefs: Markdown y <img>, sin externas, normalizadas', () => {
+    const md = '![a](img/a.png "t") ![b](./img/b.png) ![c](https://x/c.png)\n<img src="img/d.jpg">'
+    expect([...imageRefs(md)].sort()).toEqual(['img/a.png', 'img/b.png', 'img/d.jpg'])
+  })
+
+  it('una imagen borrada al guardar se reenvía si vuelve a usarse (deshacer)', async () => {
+    const blob = new Blob([new Uint8Array([1])], { type: 'image/png' })
+    const store = new ImageStore(async () => blob)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x')
+    await store.display('img/a.png') // vista al abrir el material
+    const before = '![A](img/a.png)'
+    // Se borra y se guarda: el engine la quita de Git.
+    store.markSaved([], before, '# sin imagen')
+    expect(store.pendingFor('# sin imagen')).toEqual([])
+    // Deshacer: vuelve al documento → viaja con el guardado.
+    expect(store.pendingFor(before)).toEqual([{ path: 'img/a.png', blob }])
+    // Guardada otra vez: ya no se reenvía.
+    store.markSaved(['img/a.png'], '# sin imagen', before)
+    expect(store.pendingFor(before)).toEqual([])
   })
 })
