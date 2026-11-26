@@ -35,6 +35,8 @@ export interface LmsConfig {
   token_refresh_endpoint?: string
   /** POST `{token, path}` → bytes de una imagen del material (docs/imagenes). */
   asset_endpoint?: string
+  /** POST `{action: status | merge, …}`: incorporar la versión oficial (LIA-130). */
+  sync_endpoint?: string
   file: string
   branch: string
   /** SHA del que parte la sesión (optimistic locking). */
@@ -122,6 +124,7 @@ function extractLms(header: string): { header: string; lms?: LmsConfig; hadBlock
       publish_url: sameOrigin(raw.publish_url, raw.save_endpoint),
       token_refresh_endpoint: raw.token_refresh_endpoint || undefined,
       asset_endpoint: raw.asset_endpoint || undefined,
+      sync_endpoint: sameOrigin(raw.sync_endpoint, raw.save_endpoint),
       file: raw.file,
       branch: raw.branch,
       sha: raw.sha,

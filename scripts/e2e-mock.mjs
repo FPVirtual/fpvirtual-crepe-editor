@@ -38,6 +38,13 @@ let shaCounter = 0
 const OPEN_CODE = 'c0de-de-apertura'
 let openCodeUsed = false
 const contentRequests = []
+// Versión oficial (LIA-130): main cambia a mitad de la prueba.
+let mainChanged = false
+let merged = false
+let currentMaterial = null // material tras incorporar main (lo sirve la recarga)
+let currentSha = 'a'.repeat(40)
+const OFFICIAL_LINE = 'Línea añadida en la versión OFICIAL.\n'
+const syncRequests = []
 
 // --- backend simulado --------------------------------------------------------
 
@@ -67,7 +74,8 @@ function inject(markdown, token) {
     `  token: ${token}\n` +
     '  readonly: false\n' +
     `  return_url: ${MOCK}/my/courses.php\n` +
-    `  publish_url: ${MOCK}/local/liamateriales/publish.php?id=2&file=materiales%2Fut03-mvc.md\n`
+    `  publish_url: ${MOCK}/local/liamateriales/publish.php?id=2&file=materiales%2Fut03-mvc.md\n` +
+    `  sync_endpoint: ${MOCK}/sync.php\n`
   const end = markdown.indexOf('-->')
   return markdown.slice(0, end) + yaml + markdown.slice(end)
 }
@@ -87,6 +95,13 @@ const mock = createServer((req, res) => {
       // Código de apertura de un solo uso (LIA-062): POST {code} → token de edición.
       const request = body ? JSON.parse(body) : {}
       contentRequests.push({ method: req.method, url: req.url, body: request })
+      if (req.method === 'POST' && request.token && currentMaterial !== null) {
+        // Recarga con el token vigente (tras incorporar la versión oficial).
+        cors(res)
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end(inject(currentMaterial, request.token))
+        return
+      }
       if (req.method !== 'POST' || request.code !== OPEN_CODE || openCodeUsed) {
         json(res, 403, { status: 'error', message: 'token no válido' })
         return
@@ -129,7 +144,30 @@ const mock = createServer((req, res) => {
         return
       }
       shaCounter++
-      json(res, 200, { status: 'ok', new_sha: String(shaCounter).repeat(40).slice(0, 40), token: `tok${shaCounter + 1}` })
+      currentSha = String(shaCounter).repeat(40).slice(0, 40)
+      json(res, 200, { status: 'ok', new_sha: currentSha, token: `tok${shaCounter + 1}` })
+      return
+    }
+    if (url.pathname === '/sync.php') {
+      syncRequests.push(data)
+      if (data.action === 'status') {
+        if (!mainChanged || merged) {
+          json(res, 200, { status: 'up_to_date', head_sha: currentSha, main_sha: 'm'.repeat(40) })
+          return
+        }
+        // Conflicto: la versión oficial añade una línea al final del material guardado.
+        const ours = saves[saves.length - 1].content
+        json(res, 200, {
+          status: 'conflict', behind: 1, head_sha: currentSha, main_sha: 'm'.repeat(40),
+          conflicts: ['materiales/ut03-mvc.md'], ours,
+          segments: [{ kind: 'same', text: ours }, { kind: 'conflict', ours: '', base: '', theirs: OFFICIAL_LINE }],
+        })
+        return
+      }
+      merged = true
+      currentMaterial = data.content
+      currentSha = 'e'.repeat(40)
+      json(res, 200, { status: 'ok', new_sha: currentSha, branch: 'edicion/ana/materiales-ut03-mvc', token: 'tokM' })
       return
     }
     if (url.pathname === '/token.php') {
@@ -439,6 +477,40 @@ try {
   await evaluate(cdp, `[...document.querySelectorAll('.ProseMirror .lia-columns')].at(-1).scrollIntoView({ block: 'center' }), true`)
   await capture(cdp, 'e2e-columnas')
   check('insertar: dos columnas con un bloque de imagen vacío cada una', await evaluate(cdp, `[...document.querySelectorAll('.ProseMirror .lia-columns')].some(c => c.querySelectorAll('.lia-column .milkdown-image-block').length === 2)`))
+
+  // 5h) Versión oficial (LIA-130): main cambia → aviso tras guardar → MergeView → incorporar.
+  check('versión oficial: al abrir no hay nada que incorporar', syncRequests.length >= 1 && syncRequests[0].action === 'status' && syncRequests[0].token === 'tok1' && !(await evaluate(cdp, `document.body.textContent.includes('La versión oficial de este material ha cambiado')`)))
+  mainChanged = true
+  await typeAtEndOfFirstParagraph(cdp, ' Antes de la versión oficial.')
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('sin guardar')`, 'cambios sin guardar')
+  await ctrlS(cdp)
+  await waitFor(cdp, `document.querySelector('.topbar__status')?.textContent.includes('Guardado')`, 'guardado antes de la versión oficial')
+  await waitFor(cdp, `document.body.textContent.includes('La versión oficial de este material ha cambiado en las mismas partes')`, 'aviso de la versión oficial')
+  check('versión oficial: tras guardar, aviso con «Revisar e incorporar…»', true)
+  await evaluate(cdp, `[...document.querySelectorAll('button')].find(b => b.textContent.includes('Revisar e incorporar')).click(), true`)
+  await waitFor(cdp, `!!document.querySelector('dialog.dialog--merge[open] .cm-mergeView')`, 'vista de fusión')
+  check(
+    'versión oficial: vista lado a lado (oficial | resultado editable) con 1 conflicto',
+    await evaluate(cdp, `(() => { const d = document.querySelector('dialog.dialog--merge'); const eds = d.querySelectorAll('.cm-editor'); return eds.length === 2 && d.textContent.includes('Hay 1 parte') && eds[0].textContent.includes('versión OFICIAL') && !eds[1].textContent.includes('versión OFICIAL') && eds[1].querySelector('.cm-content').getAttribute('contenteditable') === 'true' })()`),
+  )
+  await capture(cdp, 'e2e-fusion')
+  // La flecha de @codemirror/merge reacciona a mousedown: clic de ratón real.
+  const arrow = await evaluate(cdp, `(() => { const b = document.querySelector('dialog.dialog--merge .cm-merge-revert button'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`)
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await cdp.send('Input.dispatchMouseEvent', { type, x: arrow.x, y: arrow.y, button: 'left', clickCount: 1 })
+  }
+  await waitFor(cdp, `document.querySelectorAll('dialog.dialog--merge .cm-editor')[1].textContent.includes('versión OFICIAL')`, 'línea oficial tomada con la flecha')
+  check('versión oficial: la flecha toma la versión oficial en el resultado', true)
+  await evaluate(cdp, `[...document.querySelectorAll('dialog.dialog--merge button')].find(b => b.textContent.trim() === 'Incorporar').click(), true`)
+  await waitFor(cdp, `document.body.textContent.includes('Cambios de la versión oficial incorporados')`, 'incorporada')
+  const merge = syncRequests.find((r) => r.action === 'merge')
+  check(
+    'versión oficial: merge con los SHA revisados y el material resuelto (sin bloque LMS)',
+    merge?.main_sha === 'm'.repeat(40) && merge.content.includes(OFFICIAL_LINE.trim()) && !merge.content.includes('liascript-lms') && /^\d{40}$/.test(merge.head_sha),
+    merge ? `${merge.head_sha.slice(0, 8)} → ${merge.main_sha.slice(0, 8)}` : 'sin merge',
+  )
+  await waitFor(cdp, `document.querySelector('.ProseMirror').textContent.includes('versión OFICIAL')`, 'material recargado con la versión oficial')
+  check('versión oficial: el editor recarga el material ya fusionado, sin aviso pendiente', !(await evaluate(cdp, `!!document.querySelector('dialog.dialog--merge') || document.body.textContent.includes('La versión oficial de este material ha cambiado')`)))
 
   // 6) Límite de uso: 429 al guardar → aviso y el texto sigue en el editor.
   await typeAtEndOfFirstParagraph(cdp, ' LIMITE')

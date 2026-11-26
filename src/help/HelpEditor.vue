@@ -265,6 +265,13 @@ const MARKDOWN: { type: string; result: string }[] = [
           rama aparte.
         </li>
         <li>
+          Si la <strong>versión oficial</strong> del material cambia mientras lo editas, aparece un aviso
+          al abrirlo o al guardar. <em>Revisar e incorporar…</em> enseña lado a lado cómo quedará. Si
+          habéis cambiado las mismas partes, a la izquierda verás la oficial y a la derecha la tuya:
+          usa las flechas para tomar la oficial o edita el resultado a mano, y pulsa
+          <em>Incorporar</em>. Guarda antes tus cambios.
+        </li>
+        <li>
           Mientras editas se guarda un <strong>borrador en tu navegador</strong>. Si cierras sin
           guardar, al volver se te ofrecerá recuperarlo.
         </li>

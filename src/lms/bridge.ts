@@ -8,6 +8,7 @@
 import type { LmsConfig } from '../liascript'
 import { t } from '../i18n'
 import type { OpenRequest } from './openUrl'
+import { parseSync, type MergeResult, type SyncResult } from './sync'
 
 export type SaveResult =
   | { status: 'saved'; sha: string }
@@ -137,6 +138,52 @@ export class LmsBridge {
    * apertura (LIA-062), `POST content.php {token}`: el token nunca va en la
    * URL. Con el formato antiguo, la URL de apertura con el token nuevo.
    */
+  /** ¿Trae la versión oficial cambios del material? (LIA-130; `null` si el plugin no lo ofrece). */
+  async syncStatus(): Promise<SyncResult | null> {
+    if (!this.#cfg.sync_endpoint || !this.canSave()) return null
+    const response = await this.#post(this.#cfg.sync_endpoint, {
+      action: 'status',
+      file: this.#cfg.file,
+      branch: this.#cfg.branch,
+      token: this.#cfg.token,
+    })
+    if ('error' in response) return { status: 'error', message: response.error }
+    const { status, json } = response
+    if (status >= 200 && status < 300) return { status: 'ok', sync: parseSync(json) }
+    if (status === 429) return { status: 'error', message: rateLimited(json) }
+    return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
+  }
+
+  /**
+   * Incorpora la versión oficial a la rama (commit de fusión). `content` es
+   * el material resuelto si había conflictos. Como un guardado: SHA nuevo y
+   * token renovado.
+   */
+  async mergeMain(headSha: string, mainSha: string, content?: string): Promise<MergeResult> {
+    if (!this.#cfg.sync_endpoint) return { status: 'error', message: 'sync_endpoint no declarado' }
+    const response = await this.#post(this.#cfg.sync_endpoint, {
+      action: 'merge',
+      file: this.#cfg.file,
+      branch: this.#cfg.branch,
+      token: this.#cfg.token,
+      head_sha: headSha,
+      main_sha: mainSha,
+      ...(content === undefined ? {} : { content }),
+    })
+    if ('error' in response) return { status: 'error', message: response.error }
+    const { status, json } = response
+    if (status >= 200 && status < 300 && typeof json.new_sha === 'string') {
+      this.#cfg.sha = json.new_sha
+      this.#cfg.committed_at = str(json.committed_at) ?? new Date().toISOString()
+      if (typeof json.token === 'string') this.#cfg.token = json.token
+      return { status: 'merged', sha: json.new_sha }
+    }
+    if (status === 409 || status === 400) return { status: 'conflict', message: str(json.message) ?? `HTTP ${status}` }
+    if (status === 429) return { status: 'error', message: rateLimited(json) }
+    if (status === 401 || status === 403) return { status: 'auth_error', message: str(json.message) }
+    return { status: 'error', message: str(json.message) ?? `HTTP ${status}` }
+  }
+
   reloadRequest(): OpenRequest | null {
     if (!this.#source) return null
     if (this.#source.body) return { url: this.#source.url, body: { token: this.#cfg.token } }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // M1: abre el material desde Moodle, lo edita con Crepe (bloques LiaScript
 // protegidos) y lo guarda/publica contra el plugin (contrato §4).
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 
 import { branding } from './branding'
 import AppBrand from './components/AppBrand.vue'
@@ -16,6 +16,11 @@ import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
 import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
 import { LmsBridge } from './lms/bridge'
+import type { SyncStatus } from './lms/sync'
+
+// Fusión con la versión oficial (LIA-130): @codemirror/merge solo se descarga
+// cuando hay algo que incorporar y se abre la revisión.
+const MergeDialog = defineAsyncComponent(() => import('./components/MergeDialog.vue'))
 import { ImageStore, missingAlt } from './lms/images'
 import { prepareUpload, toBase64, UploadError } from './lms/imageUpload'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
@@ -67,6 +72,12 @@ const lastSaved = ref('')
 const conflict = ref<{ resolutionBranch?: string; diffUrl?: string; currentSha?: string } | null>(null)
 
 const publishMessage = ref('')
+/** Cambios de la versión oficial pendientes de incorporar (LIA-130). */
+const syncInfo = ref<SyncStatus | null>(null)
+const mergeOpen = ref(false)
+const merging = ref(false)
+const mergeError = ref('')
+const syncMessage = ref('')
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
 watchEffect(() => {
@@ -178,6 +189,58 @@ async function openFromServer(request: OpenRequest): Promise<void> {
   lastSaved.value = instance.getMarkdown()
   saveState.value = 'idle'
   await offerDraft()
+  void checkSync()
+}
+
+// --- versión oficial (LIA-130) ---------------------------------------------------
+
+/** ¿Trae la versión oficial cambios del material que la rama no tiene? */
+async function checkSync(): Promise<void> {
+  const result = await bridge?.syncStatus()
+  syncLms()
+  const pending = result?.status === 'ok' && ['clean', 'conflict', 'conflict_other'].includes(result.sync.status)
+  syncInfo.value = pending && result?.status === 'ok' ? result.sync : null
+}
+
+function openMerge(): void {
+  if (dirty.value) {
+    syncMessage.value = t('sync.saveFirst')
+    return
+  }
+  syncMessage.value = ''
+  mergeError.value = ''
+  mergeOpen.value = true
+}
+
+async function applyMerge(content: string | undefined): Promise<void> {
+  const b = bridge
+  const info = syncInfo.value
+  if (!b || !info || merging.value) return
+  merging.value = true
+  const result = await b.mergeMain(info.headSha, info.mainSha, content)
+  merging.value = false
+  syncLms()
+  if (result.status === 'merged') {
+    mergeOpen.value = false
+    syncInfo.value = null
+    // El editor vuelve a cargar la rama, ya con los cambios incorporados.
+    await reloadServerVersion()
+    syncMessage.value = t('sync.done')
+    return
+  }
+  if (result.status === 'auth_error') {
+    mergeOpen.value = false
+    saveState.value = 'auth'
+    return
+  }
+  if (result.status === 'conflict') {
+    // La rama o la versión oficial cambiaron mientras tanto: se vuelve a revisar.
+    mergeOpen.value = false
+    syncMessage.value = result.message
+    await checkSync()
+    return
+  }
+  mergeError.value = result.message
 }
 
 onMounted(async () => {
@@ -310,6 +373,7 @@ async function save(baseSha?: string): Promise<void> {
       lastSaved.value = markdown
       saveState.value = 'saved'
       publishMessage.value = ''
+      void checkSync() // ¿cambió también la versión oficial?
       await deleteDraft(draftKey(b.config.file, b.config.branch))
       break
     case 'conflict':
@@ -456,6 +520,16 @@ function toggleDebug(): void {
   </div>
 
   <div v-if="publishMessage" class="banner" role="status">{{ publishMessage }}</div>
+  <div v-if="syncInfo && canSave" class="banner banner--warning" role="status">
+    <template v-if="syncInfo.status === 'conflict_other'">{{ t('sync.coordination') }}</template>
+    <template v-else>
+      {{ t(syncInfo.status === 'conflict' ? 'sync.availableConflict' : 'sync.available') }}
+      <button class="btn btn--small" type="button" :disabled="busy" :title="dirty ? t('sync.saveFirst') : ''" @click="openMerge">
+        {{ t('sync.review') }}
+      </button>
+    </template>
+  </div>
+  <div v-if="syncMessage" class="banner" role="status">{{ syncMessage }}</div>
 
   <p v-if="status === 'loading'" class="message">{{ t('app.loading') }}</p>
   <p v-else-if="status === 'nourl'" class="message">{{ t('app.noUrl') }}</p>
@@ -476,6 +550,14 @@ function toggleDebug(): void {
     <pre>{{ debugOutput }}</pre>
   </section>
 
+  <MergeDialog
+    v-if="mergeOpen && syncInfo"
+    :sync="syncInfo"
+    :busy="merging"
+    :error="mergeError"
+    @apply="applyMerge"
+    @cancel="mergeOpen = false"
+  />
   <ConflictDialog
     v-if="conflict"
     :resolution-branch="conflict.resolutionBranch"

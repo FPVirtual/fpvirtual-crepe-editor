@@ -216,6 +216,26 @@ Las imágenes viven en el repositorio de contenidos, junto al material
   reenvía la imagen (`ImageStore`).
 - **CSP**: añade `blob:` a `img-src`.
 
+## Versión oficial (incorporar `main`)
+
+La rama de edición del profesor sale de `main` y no se actualiza sola
+(LIA-130). Al abrir el material y tras cada guardado, el editor pregunta a
+`sync.php` (`sync_endpoint` del bloque LMS) si `main` trae cambios del
+material que la rama no tiene:
+
+- **Sin conflictos**: aviso y *Revisar e incorporar…*, con una vista lado a
+  lado (`@codemirror/merge`) de la versión actual frente a cómo quedará.
+- **Con conflictos**: misma vista, a la izquierda el material con la versión
+  oficial en cada conflicto y a la derecha el resultado editable, que parte
+  de la versión del profesor; las flechas toman la oficial (como Meld).
+- **Fuera del material** (otros ficheros o material retirado de `main`):
+  aviso para coordinación, sin incorporar.
+
+*Incorporar* envía `{action: merge, head_sha, main_sha, content?}`; el engine
+crea un commit de fusión y el editor recarga el material. Hay que guardar
+antes. `MergeDialog.vue` y `@codemirror/merge` se cargan solo al abrir la
+revisión (`src/lms/sync.ts`, `src/components/MergeDialog.vue`).
+
 ## Columnas
 
 LiaScript no tiene clases de columnas, pero aplica el estilo de un `<div>` a
