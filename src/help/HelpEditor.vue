@@ -60,6 +60,7 @@ const MARKDOWN: { type: string; result: string }[] = [
       <a href="#editor/menu">El menú «/»</a>
       <a href="#editor/bloques">Mover y añadir bloques</a>
       <a href="#editor/enlaces">Enlaces e imágenes</a>
+      <a href="#editor/columnas">Dos columnas</a>
       <a href="#editor/tablas">Tablas, código y fórmulas</a>
       <a href="#editor/liascript">Bloques LiaScript</a>
       <a href="#editor/guardar">Guardar y publicar</a>
@@ -177,12 +178,32 @@ const MARKDOWN: { type: string; result: string }[] = [
         la dirección. Al pasar el ratón sobre un enlace puedes editarlo, copiarlo o quitarlo.
       </p>
       <p>
-        <strong>Imágenes</strong>: menú «/» → <em>Imagen</em> y pega la URL de la imagen. Puedes
-        añadirle un pie y ajustar su tamaño arrastrando el borde.
+        <strong>Imágenes</strong>: menú «/» → <em>Imagen</em> y pulsa <em>Subir</em>, o
+        <strong>pega</strong> una imagen (Ctrl+V) o <strong>arrástrala</strong> desde el escritorio.
+        Se reduce y se guarda junto al material (PNG, JPEG o GIF; SVG no) con el próximo guardado.
       </p>
-      <p class="help__note">
-        De momento no se pueden subir imágenes desde el ordenador: deben estar publicadas en una
-        dirección web (por ejemplo, en el repositorio del material o en Moodle).
+      <p>
+        El <strong>pie</strong> que escribes bajo la imagen es su <strong>texto alternativo</strong>:
+        descríbela para quien no puede verla. Si falta, el editor te avisa al guardar.
+      </p>
+      <p>
+        <strong>Tamaño</strong>: pulsa la imagen y usa la barra <em>Ancho</em> (deslizador o 25, 50,
+        75 y 100 %). El porcentaje es del ancho del texto (o de la columna): 100 % ocupa todo el ancho
+        imprimible del PDF. <em>Original</em> deja el tamaño natural de la imagen.
+      </p>
+      <p>
+        <strong>Borrar</strong>: pulsa la imagen y pulsa Retroceso o Supr. Al guardar, el fichero
+        también se borra del repositorio si ningún otro material lo usa.
+      </p>
+    </section>
+
+    <section id="editor/columnas">
+      <h2>Dos columnas</h2>
+      <p>
+        Menú «/» (o panel LiaScript, grupo <em>Formato</em>) → <em>Dos columnas</em>,
+        <em>Texto e imagen</em> o <em>Dos imágenes lado a lado</em>. Cada columna se edita como texto
+        normal: párrafos, listas, imágenes… En pantallas estrechas las columnas se ponen una debajo de
+        otra; en el PDF de contenido salen lado a lado.
       </p>
     </section>
 
@@ -248,13 +269,13 @@ const MARKDOWN: { type: string; result: string }[] = [
           guardar, al volver se te ofrecerá recuperarlo.
         </li>
         <li>
-          <strong>Publicar</strong> genera el formato elegido (H5P, ePub o PDF) y lo añade al curso.
-          Guarda antes de publicar.
+          <strong>Publicar…</strong> abre la página Publicar de Moodle con este material (formato,
+          versión, sección…). Publica la última versión guardada: guarda antes.
         </li>
         <li>
-          El selector <strong>Tema</strong> cambia los colores del editor: verde, oscuro o alto
-          contraste (letra más grande y máximo contraste). En «automático» sigue la configuración de
-          tu sistema.
+          Los <strong>iconos de tema</strong> cambian los colores del editor: pantalla (automático,
+          el de tu sistema), sol (verde), luna (oscuro) y contraste (letra más grande y máximo
+          contraste).
         </li>
       </ul>
     </section>

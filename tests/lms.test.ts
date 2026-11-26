@@ -1,17 +1,18 @@
-// Contrato editor↔plugin: respuestas reales de save.php / token.php /
-// publish_api.php (ver plugin local_liamateriales) contra el puente.
+// Contrato editor↔plugin: respuestas reales de save.php / token.php (ver
+// plugin local_liamateriales) contra el puente. Publicar no pasa por el
+// editor: solo enlaza a la página Publicar del plugin (publish_url).
 
 import { describe, expect, it } from 'vitest'
 
 import { splitDocument, type LmsConfig } from '../src/liascript'
 import { LmsBridge } from '../src/lms/bridge'
-import { materialUrl } from '../src/lms/openUrl'
+import { materialUrl, openCode, openRequest } from '../src/lms/openUrl'
 import { formatCommitDate } from '../src/lms/version'
 
 const CFG: LmsConfig = {
   save_endpoint: 'https://moodle/local/liamateriales/save.php',
   token_refresh_endpoint: 'https://moodle/local/liamateriales/token.php',
-  publish_endpoint: 'https://moodle/local/liamateriales/publish_api.php',
+  publish_url: 'https://moodle/local/liamateriales/publish.php?id=2&file=materiales%2Fut03-mvc.md',
   file: 'materiales/ut03-mvc.md',
   branch: 'edicion/ana/materiales-ut03-mvc',
   sha: 'a'.repeat(40),
@@ -93,24 +94,33 @@ describe('LmsBridge: token, publicación y recarga', () => {
     expect(bridge.config.token).toBe('tok9')
   })
 
-  it('publica con el SHA actual y devuelve la URL del curso', async () => {
-    const calls: { url: string; body: Record<string, unknown> }[] = []
-    const bridge = new LmsBridge(CFG, null, fakeFetch(200, { status: 'published', cmid: 7, url: 'https://moodle/course/view.php?id=2' }, calls))
-    expect(await bridge.publish('epub')).toEqual({ status: 'published', cmid: 7, url: 'https://moodle/course/view.php?id=2' })
-    expect(calls[0].body).toEqual({ file: CFG.file, sha: CFG.sha, format: 'epub', token: 'tok1' })
+  it('429: avisa de esperar y no cambia SHA ni token', async () => {
+    const bridge = new LmsBridge({ ...CFG }, null, fakeFetch(429, { status: 'rate_limited', retry_after: 42 }))
+    const result = await bridge.save('# A\n')
+    expect(result).toEqual({ status: 'error', message: expect.stringContaining('42 segundos') })
+    expect(bridge.config.sha).toBe(CFG.sha)
+    expect(bridge.config.token).toBe(CFG.token)
   })
 
-  it('readonly: no guarda ni publica', () => {
+  it('readonly: no guarda', () => {
     const bridge = new LmsBridge({ ...CFG, readonly: true })
     expect(bridge.canSave()).toBe(false)
-    expect(bridge.canPublish()).toBe(false)
   })
 
-  it('la URL de recarga lleva el token vigente', async () => {
-    const source = 'https://moodle/local/liamateriales/content.php?file=materiales%2Fut03-mvc.md&branch=b&token=tok1'
+  it('recarga con POST del token vigente, sin token en la URL (código de apertura)', async () => {
+    const source = { url: 'https://moodle/local/liamateriales/content.php', body: { code: 'c0de' } }
     const bridge = new LmsBridge(CFG, source, fakeFetch(200, { new_sha: 'e'.repeat(40), token: 'tok2' }))
     await bridge.save('x')
-    expect(new URL(bridge.reloadUrl()!).searchParams.get('token')).toBe('tok2')
+    expect(bridge.reloadRequest()).toEqual({ url: source.url, body: { token: 'tok2' } })
+  })
+
+  it('formato antiguo: la URL de recarga lleva el token vigente', async () => {
+    const source = { url: 'https://moodle/local/liamateriales/content.php?file=materiales%2Fut03-mvc.md&branch=b&token=tok1' }
+    const bridge = new LmsBridge(CFG, source, fakeFetch(200, { new_sha: 'e'.repeat(40), token: 'tok2' }))
+    await bridge.save('x')
+    const request = bridge.reloadRequest()!
+    expect(request.body).toBeUndefined()
+    expect(new URL(request.url).searchParams.get('token')).toBe('tok2')
   })
 })
 
@@ -124,6 +134,25 @@ describe('URL de apertura', () => {
     ['?debug', null],
   ])('%s', (search, expected) => {
     expect(materialUrl(search)).toBe(expected)
+  })
+})
+
+describe('código de apertura en el fragmento (LIA-062)', () => {
+  const src = 'https://moodle.example/local/liamateriales/content.php'
+  it('canjea el código con POST a content.php', () => {
+    expect(openRequest('', `#open=abc123&src=${encodeURIComponent(src)}`)).toEqual({ url: src, body: { code: 'abc123' } })
+  })
+  it('tiene prioridad sobre el formato antiguo', () => {
+    expect(openRequest(`?url=${encodeURIComponent('http://otro/c.php')}`, `#open=x&src=${encodeURIComponent(src)}`)?.body).toEqual({ code: 'x' })
+  })
+  it('rechaza orígenes que no son http(s) y fragmentos incompletos', () => {
+    expect(openCode(`#open=x&src=${encodeURIComponent('javascript:alert(1)')}`)).toBeNull()
+    expect(openCode('#open=x')).toBeNull()
+    expect(openCode('#src=' + encodeURIComponent(src))).toBeNull()
+    expect(openRequest('', '')).toBeNull()
+  })
+  it('sin fragmento, el formato antiguo', () => {
+    expect(openRequest(`?url=${encodeURIComponent(src)}`, '')).toEqual({ url: src })
   })
 })
 
@@ -142,13 +171,39 @@ describe('fecha de la versión', () => {
   })
 
   it('tras guardar usa la fecha del servidor o, si no la da, la actual', async () => {
-    const withDate = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'b'.repeat(40), committed_at: '2026-11-23T11:00:00Z' }))
+    const withDate = new LmsBridge({ ...CFG }, { url: 'https://m/content.php' }, fakeFetch(200, { status: 'ok', new_sha: 'b'.repeat(40), committed_at: '2026-11-23T11:00:00Z' }))
     await withDate.save('# A\n')
     expect(withDate.config.committed_at).toBe('2026-11-23T11:00:00Z')
 
     const before = Date.now()
-    const without = new LmsBridge({ ...CFG }, 'https://m/content.php', fakeFetch(200, { status: 'ok', new_sha: 'c'.repeat(40) }))
+    const without = new LmsBridge({ ...CFG }, { url: 'https://m/content.php' }, fakeFetch(200, { status: 'ok', new_sha: 'c'.repeat(40) }))
     await without.save('# A\n')
     expect(Date.parse(without.config.committed_at!)).toBeGreaterThanOrEqual(before - 1000)
+  })
+})
+
+describe('enlace a Publicar (publish_url)', () => {
+  const doc = (url: string) =>
+    [
+      '<!--',
+      'liascript-lms:',
+      '  save_endpoint: https://moodle/local/liamateriales/save.php',
+      `  publish_url: ${url}`,
+      '  file: m.md',
+      '  branch: b',
+      `  sha: ${'a'.repeat(40)}`,
+      '  token: t',
+      '  readonly: false',
+      '-->',
+      '# M',
+    ].join('\n')
+
+  it('acepta la página Publicar del mismo Moodle', () => {
+    const url = 'https://moodle/local/liamateriales/publish.php?id=2&file=m.md'
+    expect(splitDocument(doc(url)).lms?.publish_url).toBe(url)
+  })
+
+  it.each(['javascript:alert(1)', 'https://otro.example/publish.php', 'no es una url'])('descarta %s', (url) => {
+    expect(splitDocument(doc(url)).lms?.publish_url).toBeUndefined()
   })
 })

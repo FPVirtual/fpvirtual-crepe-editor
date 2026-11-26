@@ -11,13 +11,30 @@
 // se extrae y se elimina: nunca se edita ni se devuelve (el backend lo
 // reinyecta en cada apertura).
 
+/** La URL solo se acepta si es http(s) y del mismo origen que `reference` (Moodle). */
+function sameOrigin(url: string | undefined, reference: string): string | undefined {
+  if (!url) return undefined
+  try {
+    const parsed = new URL(url)
+    if (!/^https?:$/.test(parsed.protocol) || parsed.origin !== new URL(reference).origin) return undefined
+    return parsed.href
+  } catch {
+    return undefined
+  }
+}
+
 export interface LmsConfig {
   /** POST `{file, branch, original_sha, content, token}`. */
   save_endpoint: string
-  /** POST `{file, sha, format, token}` (publicación en un clic). */
-  publish_endpoint?: string
+  /**
+   * Página Publicar del plugin con este material elegido (se abre con la
+   * sesión de Moodle). Solo si el usuario puede publicar en el curso.
+   */
+  publish_url?: string
   /** POST `{file, branch, token}` → `{token}` (renovación sin guardar). */
   token_refresh_endpoint?: string
+  /** POST `{token, path}` → bytes de una imagen del material (docs/imagenes). */
+  asset_endpoint?: string
   file: string
   branch: string
   /** SHA del que parte la sesión (optimistic locking). */
@@ -102,8 +119,9 @@ function extractLms(header: string): { header: string; lms?: LmsConfig; hadBlock
     hadBlock: true,
     lms: {
       save_endpoint: raw.save_endpoint,
-      publish_endpoint: raw.publish_endpoint || undefined,
+      publish_url: sameOrigin(raw.publish_url, raw.save_endpoint),
       token_refresh_endpoint: raw.token_refresh_endpoint || undefined,
+      asset_endpoint: raw.asset_endpoint || undefined,
       file: raw.file,
       branch: raw.branch,
       sha: raw.sha,

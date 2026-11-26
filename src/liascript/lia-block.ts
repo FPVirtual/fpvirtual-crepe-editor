@@ -18,6 +18,8 @@ import type { Root, RootContent } from 'mdast'
 
 import { t } from '../i18n'
 import { classifyBlock, type LiaKind } from './classify'
+import { groupColumns, imageWithWidth, type ColumnsMdast } from './columns'
+import { parseBox, renderInline } from './box'
 import { summarizeQuiz } from './quiz'
 
 export const LIA_BLOCK = 'lia_block'
@@ -55,9 +57,23 @@ export function remarkLiaBlocks() {
   return (tree: Root, file: { value?: unknown }) => {
     const source = typeof file?.value === 'string' ? file.value : null
     if (!source) return // p. ej. ejecuciones sin fuente: nada que recortar
+    // Maquetación del editor (columns.ts) antes de proteger: columnas e
+    // imágenes con ancho se editan en visual, no como bloques HTML.
+    tree.children = protect(groupColumns(tree.children.map((n) => imageWithWidth(n) ?? n)), source)
+  }
+}
 
+/** Protege los bloques LiaScript de una lista (nivel superior o una columna). */
+function protect(children: RootContent[], source: string): RootContent[] {
+  for (const node of children) {
+    if ((node.type as string) !== 'liaColumns') continue
+    for (const column of (node as unknown as ColumnsMdast).children) {
+      column.children = protect(column.children.map((n) => imageWithWidth(n) ?? n), source)
+    }
+  }
+  {
     const items: Item[] = []
-    for (const node of tree.children) {
+    for (const node of children) {
       const pos = node.position
       if (pos?.start.offset === undefined || pos.end.offset === undefined) {
         // Sin posición no se puede recortar la fuente: se deja intacto y corta grupos.
@@ -72,7 +88,11 @@ export function remarkLiaBlocks() {
         end: pos.end.offset,
         startLine: pos.start.line,
         endLine: pos.end.line,
-        kind: classifyBlock(node as { type: string; meta?: string | null }, text),
+        // Columnas e imagen con ancho: maquetación editable, nunca protegida.
+        kind:
+          (node.type as string) === 'liaColumns' || (node.type as string) === 'image-block'
+            ? null
+            : classifyBlock(node as { type: string; meta?: string | null }, text),
         starRule: node.type === 'thematicBreak' && STAR_RULE.test(text),
       })
     }
@@ -104,7 +124,7 @@ export function remarkLiaBlocks() {
       groups.push(group)
     }
 
-    tree.children = groups.flatMap((group) => {
+    return groups.flatMap((group) => {
       const kind = group.find((it) => it.kind)?.kind
       if (!kind) return group.map((it) => it.node)
       const first = group[0]
@@ -199,18 +219,47 @@ export function fillCard(card: HTMLElement, value: string, kind: LiaKind): HTMLE
   header.className = 'lia-card__header'
   const label = document.createElement('span')
   label.className = 'lia-card__label'
-  label.textContent = t(`lia.kind.${kind}`)
   header.append(label)
   card.append(header)
 
+  // Caja de aviso: como en la web publicada (contenedor hope con título).
+  const box = kind === 'macro' ? parseBox(value) : null
+  if (box) {
+    const title = t(`lia.box.${box.name}`)
+    card.classList.add('lia-card--box', 'hint-container', box.type)
+    card.setAttribute('aria-label', t('lia.box.label', { title }))
+    label.classList.add('hint-container-title')
+    label.textContent = title
+    const text = document.createElement('p')
+    text.className = 'lia-card__box-text'
+    text.append(...renderInline(box.text))
+    card.append(text)
+    return card
+  }
+
+  label.textContent = t(`lia.kind.${kind}`)
   const quiz = kind === 'quiz' ? summarizeQuiz(value) : null
   if (quiz && quiz.options.length > 0) {
+    // Como el quiz de la web publicada: opciones con su marcador, sin interacción.
     const list = document.createElement('ul')
-    list.className = 'lia-card__quiz'
+    list.className = `lia-card__quiz lia-card__quiz--${quiz.type}`
     for (const option of quiz.options) {
       const item = document.createElement('li')
       item.className = option.correct ? 'is-correct' : ''
-      item.textContent = `${option.correct ? '✓' : '○'} ${option.text || t('lia.quiz.noText')}`
+      const marker = document.createElement('span')
+      marker.className = 'lia-card__marker'
+      marker.setAttribute('aria-hidden', 'true')
+      const text = document.createElement('span')
+      text.className = 'lia-card__option'
+      if (option.text) text.append(...renderInline(option.text))
+      else text.textContent = t('lia.quiz.noText')
+      item.append(marker, text)
+      if (option.correct && quiz.type !== 'text') {
+        const correct = document.createElement('span')
+        correct.className = 'lia-card__correct'
+        correct.textContent = t('lia.quiz.correct')
+        item.append(correct)
+      }
       list.append(item)
     }
     card.append(list)

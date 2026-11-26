@@ -14,10 +14,12 @@ import { createLiaEditor, type LiaEditor } from './editor/createEditor'
 import { useOutline } from './editor/useOutline'
 import { usePanel } from './editor/usePanel'
 import { t } from './i18n'
-import { extractHeaderMacros, type LmsConfig } from './liascript'
-import { LmsBridge, type PublishFormat } from './lms/bridge'
+import { extractHeaderMacros, splitDocument, type LmsConfig } from './liascript'
+import { LmsBridge } from './lms/bridge'
+import { ImageStore, missingAlt } from './lms/images'
+import { prepareUpload, toBase64, UploadError } from './lms/imageUpload'
 import { deleteDraft, draftKey, loadDraft, saveDraft, type Draft } from './lms/drafts'
-import { materialUrl } from './lms/openUrl'
+import { openRequest, type OpenRequest } from './lms/openUrl'
 import { formatCommitDate } from './lms/version'
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'unchanged' | 'error' | 'invalid' | 'auth'
@@ -53,6 +55,8 @@ const status = ref<'loading' | 'ready' | 'nourl' | 'error'>('loading')
 const errorMessage = ref('')
 
 let bridge: LmsBridge | null = null
+/** Imágenes relativas del material abierto (docs/imagenes). */
+let images: ImageStore | null = null
 /** Copia reactiva de la configuración del puente (SHA y token cambian al guardar). */
 const lms = ref<LmsConfig | null>(null)
 
@@ -62,10 +66,7 @@ const invalidErrors = ref<{ line?: number; message: string }[]>([])
 const lastSaved = ref('')
 const conflict = ref<{ resolutionBranch?: string; diffUrl?: string; currentSha?: string } | null>(null)
 
-const publishFormat = ref<PublishFormat>('h5p')
-const publishing = ref(false)
 const publishMessage = ref('')
-const publishUrl = ref<string | undefined>()
 
 const draftOffer = ref<{ draft: Draft; stale: boolean } | null>(null)
 watchEffect(() => {
@@ -80,9 +81,15 @@ let draftTimer: ReturnType<typeof setTimeout> | undefined
 let changeTimer: ReturnType<typeof setTimeout> | undefined
 
 const canSave = computed(() => Boolean(lms.value && !lms.value.readonly && lms.value.token))
-const canPublish = computed(() => canSave.value && Boolean(lms.value?.publish_endpoint))
+/** Subir imágenes: se puede guardar y el plugin sirve imágenes (docs/imagenes). */
+const canUpload = computed(() => canSave.value && Boolean(lms.value?.asset_endpoint))
+const imageMessage = ref('')
+/** Imágenes sin texto alternativo en lo último cargado o guardado (aviso, no bloquea). */
+const missingAltCount = computed(() => (canSave.value ? missingAlt(lastSaved.value) : 0))
+/** Publicar se hace en la página del plugin; el editor solo enlaza a ella. */
+const publishUrl = computed(() => (canSave.value ? lms.value?.publish_url : undefined))
 const dirty = computed(() => saveState.value === 'dirty')
-const busy = computed(() => saveState.value === 'saving' || publishing.value)
+const busy = computed(() => saveState.value === 'saving')
 
 const statusText = computed(() => {
   switch (saveState.value) {
@@ -107,8 +114,18 @@ function syncLms(): void {
 
 // --- carga ---------------------------------------------------------------
 
-async function fetchMarkdown(url: string): Promise<string> {
-  const response = await fetch(url, { credentials: 'omit' })
+async function fetchMarkdown(request: OpenRequest): Promise<string> {
+  const response = await fetch(
+    request.url,
+    request.body
+      ? {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request.body),
+          credentials: 'omit',
+        }
+      : { credentials: 'omit' },
+  )
   if (!response.ok) {
     const json = (await response.json().catch(() => ({}))) as { message?: string }
     throw new Error(json.message ?? `HTTP ${response.status}`)
@@ -119,18 +136,44 @@ async function fetchMarkdown(url: string): Promise<string> {
 async function mountEditor(markdown: string): Promise<LiaEditor> {
   await editor.value?.destroy()
   root.value!.innerHTML = ''
-  const instance = await createLiaEditor(root.value!, markdown, { onChange })
+  const instance = await createLiaEditor(root.value!, markdown, {
+    onChange,
+    images: images
+      ? { display: (url) => images!.display(url), upload: uploadImage, beginUpload: () => (imageMessage.value = '') }
+      : undefined,
+  })
   editor.value = instance
   return instance
 }
 
-async function openFromServer(url: string): Promise<void> {
-  const markdown = await fetchMarkdown(url)
+/** Subida de una imagen desde Crepe: queda pendiente hasta el próximo guardado. */
+async function uploadImage(file: File): Promise<string> {
+  if (!images || !canUpload.value) {
+    imageMessage.value = t('image.error.unavailable')
+    throw new Error('subida no disponible')
+  }
+  try {
+    const prepared = await prepareUpload(file)
+    images.addPending(prepared)
+    return prepared.path
+  } catch (error) {
+    const reason = error instanceof UploadError ? error.reason : 'decode'
+    imageMessage.value = t(`image.error.${reason}`)
+    throw error
+  }
+}
+
+async function openFromServer(request: OpenRequest): Promise<void> {
+  const markdown = await fetchMarkdown(request)
   status.value = 'ready'
   await Promise.resolve()
+  // El puente va antes que el editor: Crepe pide las imágenes al montarse.
+  const cfg = splitDocument(markdown).lms
+  bridge = cfg ? new LmsBridge(cfg, request) : null
+  images?.dispose()
+  const b = bridge
+  images = new ImageStore(b ? (path) => b.fetchAsset(path) : null)
   const instance = await mountEditor(markdown)
-  const cfg = instance.doc.lms
-  bridge = cfg ? new LmsBridge(cfg, url) : null
   syncLms()
   lastSaved.value = instance.getMarkdown()
   saveState.value = 'idle'
@@ -149,12 +192,15 @@ onMounted(async () => {
       lastSaved.value = (await mountEditor(demo.default)).getMarkdown()
       return
     }
-    const url = materialUrl(location.search)
-    if (!url) {
+    const request = openRequest(location.search, location.hash)
+    // El código de apertura es de un solo uso: fuera de la barra de
+    // direcciones (historial, marcadores, compartir) antes de canjearlo.
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search)
+    if (!request) {
       status.value = 'nourl'
       return
     }
-    await openFromServer(url)
+    await openFromServer(request)
     refreshTimer = setInterval(async () => {
       if (await bridge?.refreshToken()) syncLms()
     }, TOKEN_REFRESH_MS)
@@ -194,7 +240,6 @@ function checkDirty(): void {
     if (saveState.value === 'dirty') saveState.value = 'idle'
     return
   }
-  if (saveState.value !== 'dirty') publishMessage.value = ''
   saveState.value = 'dirty'
   clearTimeout(draftTimer)
   draftTimer = setTimeout(() => void storeDraft(markdown), DRAFT_DEBOUNCE_MS)
@@ -203,7 +248,13 @@ function checkDirty(): void {
 async function storeDraft(markdown: string): Promise<void> {
   const cfg = lms.value
   if (!cfg || !canSave.value || saveState.value !== 'dirty') return
-  await saveDraft({ key: draftKey(cfg.file, cfg.branch), sha: cfg.sha, markdown, savedAt: Date.now() })
+  await saveDraft({
+    key: draftKey(cfg.file, cfg.branch),
+    sha: cfg.sha,
+    markdown,
+    savedAt: Date.now(),
+    images: images?.pendingFor(markdown) ?? [],
+  })
 }
 
 async function offerDraft(): Promise<void> {
@@ -218,6 +269,7 @@ async function recoverDraft(): Promise<void> {
   const offer = draftOffer.value
   draftOffer.value = null
   if (!offer) return
+  for (const image of offer.draft.images ?? []) images?.addPending(image)
   await mountEditor(offer.draft.markdown)
   saveState.value = 'dirty'
 }
@@ -241,12 +293,23 @@ async function save(baseSha?: string): Promise<void> {
   }
   saveState.value = 'saving'
   invalidErrors.value = []
-  const result = await b.save(markdown, baseSha)
+  // Imágenes subidas que el documento usa: mismo commit que el Markdown.
+  const pending = images?.pendingFor(markdown) ?? []
+  const uploads = await Promise.all(
+    pending.map(async (image) => ({ path: image.path, content_base64: await toBase64(image.blob) })),
+  )
+  const result = await b.save(markdown, baseSha, uploads)
   syncLms()
   switch (result.status) {
     case 'saved':
+      images?.markSaved(
+        pending.map((image) => image.path),
+        lastSaved.value,
+        markdown,
+      )
       lastSaved.value = markdown
       saveState.value = 'saved'
+      publishMessage.value = ''
       await deleteDraft(draftKey(b.config.file, b.config.branch))
       break
     case 'conflict':
@@ -273,13 +336,13 @@ async function forceSave(): Promise<void> {
 }
 
 async function reloadServerVersion(): Promise<void> {
-  const url = bridge?.reloadUrl()
+  const request = bridge?.reloadRequest()
   conflict.value = null
-  if (!url) return
+  if (!request) return
   try {
     const cfg = lms.value
     if (cfg) await deleteDraft(draftKey(cfg.file, cfg.branch))
-    await openFromServer(url)
+    await openFromServer(request)
   } catch (error) {
     saveState.value = 'error'
     saveMessage.value = (error as Error).message
@@ -288,27 +351,14 @@ async function reloadServerVersion(): Promise<void> {
 
 // --- publicación ----------------------------------------------------------------
 
-async function publish(): Promise<void> {
-  const b = bridge
-  if (!b || busy.value) return
-  publishUrl.value = undefined
-  if (dirty.value) {
-    publishMessage.value = t('publish.saveFirst')
+/** La página Publicar usa la última versión guardada: con cambios, avisa antes. */
+function openPublish(event: MouseEvent): void {
+  if (!dirty.value) {
+    publishMessage.value = ''
     return
   }
-  publishing.value = true
-  publishMessage.value = t('publish.running')
-  const result = await b.publish(publishFormat.value)
-  publishing.value = false
-  if (result.status === 'published') {
-    publishMessage.value = t('publish.done')
-    publishUrl.value = result.url
-  } else if (result.status === 'auth_error') {
-    publishMessage.value = result.message ? t('publish.error', { message: result.message }) : ''
-    if (!result.message) saveState.value = 'auth'
-  } else {
-    publishMessage.value = t('publish.error', { message: result.message })
-  }
+  event.preventDefault()
+  publishMessage.value = t('publish.saveFirst')
 }
 
 // --- teclado y salida ------------------------------------------------------------
@@ -352,16 +402,17 @@ function toggleDebug(): void {
       </button>
     </template>
 
-    <template v-if="canPublish">
-      <label class="visually-hidden" for="publish-format">{{ t('publish.format') }}</label>
-      <select id="publish-format" v-model="publishFormat" class="select" :disabled="busy">
-        <option value="h5p">{{ t('publish.h5p') }}</option>
-        <option value="epub">{{ t('publish.epub') }}</option>
-        <option value="pdf">{{ t('publish.pdf') }}</option>
-        <option value="scorm">{{ t('publish.scorm') }}</option>
-      </select>
-      <button class="btn" type="button" :disabled="busy" @click="publish">{{ t('publish.button') }}</button>
-    </template>
+    <a
+      v-if="publishUrl"
+      class="btn"
+      :href="publishUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+      :title="t('publish.linkTitle')"
+      @click="openPublish"
+    >
+      {{ t('publish.link') }}
+    </a>
 
     <ThemeSelect />
     <a class="btn" href="./ayuda.html" target="md-ayuda" :title="t('help.buttonTitle')" @click.prevent="openHelp">
@@ -399,12 +450,12 @@ function toggleDebug(): void {
     </ul>
   </div>
 
-  <div v-if="publishMessage" class="banner" role="status">
-    {{ publishMessage }}
-    <a v-if="publishUrl" class="btn" :href="publishUrl" target="_blank" rel="noopener noreferrer">
-      {{ t('publish.open') }}
-    </a>
+  <div v-if="imageMessage" class="banner banner--error" role="alert">{{ imageMessage }}</div>
+  <div v-if="missingAltCount" class="banner banner--warning" role="status">
+    {{ missingAltCount === 1 ? t('image.missingAlt.one') : t('image.missingAlt.many', { n: missingAltCount }) }}
   </div>
+
+  <div v-if="publishMessage" class="banner" role="status">{{ publishMessage }}</div>
 
   <p v-if="status === 'loading'" class="message">{{ t('app.loading') }}</p>
   <p v-else-if="status === 'nourl'" class="message">{{ t('app.noUrl') }}</p>
@@ -414,7 +465,7 @@ function toggleDebug(): void {
     <SidePanel id="outline-panel" side="left" :title="t('outline.title')" :open="outline.open.value" @toggle="outline.toggle">
       <OutlinePanel :items="outline.items.value" :active="outline.active.value" @select="outline.select" />
     </SidePanel>
-    <main ref="root" class="editor" />
+    <main ref="root" class="editor" :class="{ 'editor--uploads': canUpload }" />
     <SidePanel id="lia-panel" side="right" :title="t('lia.panel.title')" :open="liaPanel.open.value" @toggle="liaPanel.toggle">
       <LiaPanel :macros="headerMacros" :can-insert="canInsert" @insert="insertExample" />
     </SidePanel>

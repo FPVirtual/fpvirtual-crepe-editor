@@ -34,7 +34,20 @@ export function insertLiaSource(ctx: Ctx, source: string): void {
   if (content.firstChild?.type.name === LIA_BLOCK) cardViewAt(view, at)?.startEdit()
 }
 
-export function crepeFeatureConfigs(macros: HeaderMacro[] = []): NonNullable<CrepeConfig['featureConfigs']> {
+/** Ganchos de imágenes del editor (docs/imagenes). */
+export interface ImageHooks {
+  /** URL que se pinta para la del Markdown (rutas relativas → `blob:`). */
+  display: (url: string) => string | Promise<string>
+  /** Subida: devuelve la ruta relativa que se escribe en el Markdown. */
+  upload?: (file: File) => Promise<string>
+  /** Empieza una subida (botón, pegar o soltar): borra los avisos anteriores. */
+  beginUpload?: () => void
+}
+
+export function crepeFeatureConfigs(
+  macros: HeaderMacro[] = [],
+  images?: ImageHooks,
+): NonNullable<CrepeConfig['featureConfigs']> {
   return {
     [Crepe.Feature.CodeMirror]: {
       theme: codeHighlight,
@@ -63,6 +76,14 @@ export function crepeFeatureConfigs(macros: HeaderMacro[] = []): NonNullable<Cre
       blockUploadButton: t('crepe.image.upload'),
       blockUploadPlaceholderText: t('crepe.image.urlPlaceholder'),
       blockCaptionPlaceholderText: t('crepe.image.caption'),
+      ...(images ? { proxyDomURL: images.display } : {}),
+      // Sin subida propia, Crepe guardaría una URL blob: que se pierde al cerrar.
+      onUpload: images?.upload
+        ? (file: File) => {
+            images.beginUpload?.()
+            return images.upload!(file)
+          }
+        : () => Promise.reject(new Error('subida no disponible')),
     },
     [Crepe.Feature.BlockEdit]: {
       textGroup: {

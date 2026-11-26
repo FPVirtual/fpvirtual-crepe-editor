@@ -91,10 +91,20 @@
   padding: 0 0.3em;
 }
 .milkdown .ProseMirror pre {
-  background: var(--md-color-code-bg);
+  background: var(--md-color-code-block-bg);
 }
 .milkdown .ProseMirror pre code {
   padding: 0;
+  background: transparent;
+}
+
+/* Bloques de código (CodeMirror): fondo y radio de la web publicada (hope). */
+.milkdown .milkdown-code-block {
+  background: var(--md-color-code-block-bg);
+  border-radius: var(--md-radius);
+}
+.milkdown .milkdown-code-block .cm-editor,
+.milkdown .milkdown-code-block .cm-gutters {
   background: transparent;
 }
 

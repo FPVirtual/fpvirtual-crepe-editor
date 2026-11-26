@@ -9,6 +9,12 @@
 // Los tests (tests/lia-editing.test.ts) comprueban que cada `source` se
 // guarda literal y, salvo los marcados `native`, entra como tarjeta LiaScript.
 
+import { COLUMN_OPEN, COLUMNS_OPEN } from './columns'
+
+/** Dos columnas con el Markdown de cada una (formato de columns.ts). */
+const columns = (a: string, b: string): string =>
+  `${COLUMNS_OPEN}\n${COLUMN_OPEN}\n\n${a}\n\n</div>\n${COLUMN_OPEN}\n\n${b}\n\n</div>\n</div>`
+
 export type LiaCategory = 'quiz' | 'survey' | 'animation' | 'code' | 'media' | 'format' | 'data'
 
 export interface LiaExample {
@@ -223,6 +229,34 @@ export const LIA_EXAMPLES: readonly LiaExample[] = [
     description: 'Contenido oculto que se despliega al pulsar, útil para soluciones o ampliaciones. Deja líneas en blanco alrededor del contenido: en el editor, el interior se edita como texto normal entre las dos etiquetas.',
     source: '<details>\n<summary>Ver la solución</summary>\n\nLa clave primaria identifica de forma única cada fila de la tabla.\n\n</details>',
     mixed: true,
+  },
+
+  {
+    key: 'columns',
+    category: 'format',
+    title: 'Dos columnas',
+    description: 'Dos columnas de contenido lado a lado (en pantallas estrechas, una debajo de otra). Cada columna se edita como texto normal: párrafos, listas, imágenes…',
+    source: columns('Texto de la primera columna.', 'Texto de la segunda columna.'),
+    menu: true,
+    native: true,
+  },
+  {
+    key: 'columns-text-image',
+    category: 'format',
+    title: 'Texto e imagen',
+    description: 'Texto a la izquierda e imagen a la derecha. Sube la imagen con el botón del bloque.',
+    source: columns('Texto que acompaña a la imagen.', '![]()'),
+    menu: true,
+    native: true,
+  },
+  {
+    key: 'columns-images',
+    category: 'format',
+    title: 'Dos imágenes lado a lado',
+    description: 'Dos imágenes en paralelo, cada una en su columna. Sube cada imagen con el botón de su bloque y escribe su texto alternativo en el pie.',
+    source: columns('![]()', '![]()'),
+    menu: true,
+    native: true,
   },
 
   // --- Datos y diagramas ---------------------------------------------------

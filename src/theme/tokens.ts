@@ -36,7 +36,8 @@ export const COLOR_TOKENS = [
   'on-inverse',
   // Código
   'code-text',
-  'code-bg',
+  'code-bg', // código en línea
+  'code-block-bg', // bloques de código (como la web publicada)
   // Estados
   'danger',
   'danger-soft',
@@ -89,7 +90,7 @@ export const DEFAULT_TYPOGRAPHY: Omit<Record<TypeToken, string>, 'shadow-1' | 's
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
   'font-code': "Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', ui-monospace, monospace",
   'font-size-base': '16px',
-  'line-height': '1.7',
+  'line-height': '1.75',
   'heading-weight': '600',
   'font-size-h1': '2.2em',
   'font-size-h2': '1.65em',
@@ -122,14 +123,14 @@ export const CONTRAST_PAIRS: ContrastPair[] = [
   ...text('primary-text', 'bg', 'surface', 'surface-muted', 'primary-soft'),
   ...text('on-primary', 'primary-fill'),
   ...text('on-inverse', 'inverse'),
-  ...text('code-text', 'code-bg'),
+  ...text('code-text', 'code-bg', 'code-block-bg'),
   ...text('danger', 'surface', 'danger-soft'),
   ...text('warning', 'warning-soft'),
   ...text('success', 'success-soft'),
   ...text('info', 'info-soft'),
   ...text('special', 'special-soft'),
   ...text('text', 'danger-soft', 'warning-soft', 'success-soft', 'info-soft', 'special-soft'),
-  ...SYNTAX_TOKENS.flatMap((s) => text(`syntax-${s}`, 'surface-muted')),
+  ...SYNTAX_TOKENS.flatMap((s) => text(`syntax-${s}`, 'surface-muted', 'code-block-bg')),
   ...ui('border-strong', 'surface', 'bg'),
   ...ui('focus', 'surface', 'bg'),
   ...ui('primary-fill', 'surface'),
